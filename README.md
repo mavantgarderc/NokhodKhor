@@ -10,6 +10,8 @@ A no-frills tribute to an all-time classic: Pac-Man.
 - Lightweight, simple, and nostalgic.
 - Perfect if you're into exploring game mechanics without unnecessary complexity.
 
+![ScreenShot](./assets/ScreenShot01.png)
+
 ---
 
 ##  Repository Overview
