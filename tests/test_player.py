@@ -1,8 +1,8 @@
 import copy
 
-from config import WIDTH, HEIGHT
-from board import BASE_LEVEL
-from player import check_position, check_collisions
+from nokhodkhor.board import BASE_LEVEL
+from nokhodkhor.config import HEIGHT, WIDTH
+from nokhodkhor.player import check_collisions, check_position
 
 
 def _tile_center(i: int, j: int):

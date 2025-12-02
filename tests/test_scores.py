@@ -1,8 +1,8 @@
 import os
 import tempfile
 
-import scores
-from config import DIFFICULTIES
+import nokhodkhor.scores as scores
+from nokhodkhor.config import DIFFICULTIES
 
 
 def test_load_default_high_scores_without_file(tmp_path):

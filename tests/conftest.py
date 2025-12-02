@@ -2,5 +2,8 @@ import os
 import sys
 
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if ROOT_DIR not in sys.path:
-    sys.path.insert(0, ROOT_DIR)
+SRC_DIR = os.path.join(ROOT_DIR, "src")
+
+for path in (ROOT_DIR, SRC_DIR):
+    if path not in sys.path:
+        sys.path.insert(0, path)

@@ -1,18 +1,18 @@
 import copy
 
 import pygame
-
 from board import boards, draw_board
-from config import (ACTION_LABELS, ACTION_ORDER, BLINKY_START, CLYDE_START,
-                    COLOR_BG, DEFAULT_DIFFICULTY, DEFAULT_KEY_BINDINGS,
-                    DIFFICULTIES, FONT_NAME, FONT_SIZE, FPS, HEIGHT,
-                    INKY_START, PINKY_START, PLAYER_START_X, PLAYER_START_Y,
-                    STARTUP_DELAY_FRAMES, WIDTH)
-from ghosts import Ghost
-from hud import draw_misc
-from player import check_collisions, check_position, draw_player, move_player
-from scores import (get_high_score, load_high_scores, maybe_update_high_score,
-                    save_high_scores)
+
+from .config import (ACTION_LABELS, ACTION_ORDER, BLINKY_START, CLYDE_START,
+                     COLOR_BG, DEFAULT_DIFFICULTY, DEFAULT_KEY_BINDINGS,
+                     DIFFICULTIES, FONT_NAME, FONT_SIZE, FPS, HEIGHT,
+                     INKY_START, PINKY_START, PLAYER_START_X, PLAYER_START_Y,
+                     STARTUP_DELAY_FRAMES, WIDTH)
+from .ghosts import Ghost
+from .hud import draw_misc
+from .player import check_collisions, check_position, draw_player, move_player
+from .scores import (get_high_score, load_high_scores, maybe_update_high_score,
+                     save_high_scores)
 
 
 def run() -> None:

@@ -3,7 +3,20 @@ name = "nokhodkhor"
 version = "0.1.0"
 description = "Pac-Man inspired game in pygame"
 requires-python = ">=3.9"
+dependencies = ["pygame>=2.6.0"]
+
+[project.scripts]
+nokhodkhor = "nokhodkhor.game:run"
 
 [build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 88
+target-version = ["py39"]
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "I"]
+src = ["src"]

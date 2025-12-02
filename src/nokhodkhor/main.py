@@ -1,4 +1,4 @@
-from game import run
+from nokhodkhor.game import run
 
 if __name__ == "__main__":
     run()

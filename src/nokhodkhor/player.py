@@ -2,7 +2,7 @@ from typing import List, Tuple
 
 import pygame
 
-from config import HEIGHT, WIDTH
+from .config import HEIGHT, WIDTH
 
 
 def draw_player(

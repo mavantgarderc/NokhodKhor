@@ -3,7 +3,7 @@ from typing import List
 
 import pygame
 
-from config import COLOR_WALL, HEIGHT, PI, WIDTH
+from .config import COLOR_WALL, HEIGHT, PI, WIDTH
 
 BASE_LEVEL: List[List[int]] = [
     [

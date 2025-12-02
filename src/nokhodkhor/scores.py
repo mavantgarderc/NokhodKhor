@@ -2,7 +2,7 @@ import json
 import os
 from typing import Dict
 
-from config import DIFFICULTIES
+from .config import DIFFICULTIES
 
 SCORES_FILE = "scores.json"
 DEFAULT_SCORES: Dict[str, int] = {name: 0 for name in DIFFICULTIES.keys()}

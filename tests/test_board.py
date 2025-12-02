@@ -1,6 +1,6 @@
 import copy
 
-from board import BASE_LEVEL, boards
+from nokhodkhor.board import BASE_LEVEL, boards
 
 
 def test_board_dimensions():
