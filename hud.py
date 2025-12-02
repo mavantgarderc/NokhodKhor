@@ -12,6 +12,7 @@ def draw_misc(
     game_won: bool,
     player_images,
     paused: bool,
+    pause_menu_index: int,
     difficulty_name: str,
     level_index: int,
     total_levels: int,
@@ -59,12 +60,36 @@ def draw_misc(
         )
         screen.blit(gameover_text, (100, 300))
 
-    if paused and not (game_over or game_won):
+    if remap_prompt is not None:
         pygame.draw.rect(screen, "white", [100, 250, 700, 200], 0, 10)
         pygame.draw.rect(screen, "darkgray", [120, 270, 660, 160], 0, 10)
-        pause_text = font.render("Paused - press Pause key to resume", True, "yellow")
-        screen.blit(pause_text, (150, 320))
+        title_text = font.render("Remapping controls", True, "cyan")
+        screen.blit(title_text, (150, 290))
+        remap_text = font.render(f"Press key for: {remap_prompt}", True, "cyan")
+        screen.blit(remap_text, (150, 330))
+        cancel_text = font.render("ESC to cancel remap", True, "gray")
+        screen.blit(cancel_text, (150, 370))
+        return
 
-    if remap_prompt is not None:
-        remap_text = font.render(f"Remapping controls: {remap_prompt}", True, "cyan")
-        screen.blit(remap_text, (150, 360))
+    if paused and not (game_over or game_won):
+        pygame.draw.rect(screen, "white", [180, 200, 540, 320], 0, 10)
+        pygame.draw.rect(screen, "darkgray", [200, 220, 500, 280], 0, 10)
+
+        title_text = font.render("Paused", True, "yellow")
+        screen.blit(title_text, (360, 235))
+
+        menu_items = [
+            "Resume",
+            "Restart",
+            "Change Difficulty",
+            "Quit",
+        ]
+
+        base_y = 280
+        for idx, label in enumerate(menu_items):
+            color = "yellow" if idx == pause_menu_index else "white"
+            text_surf = font.render(label, True, color)
+            screen.blit(text_surf, (260, base_y + idx * 40))
+
+        hint_text = font.render("Use ↑/↓ + Enter", True, "gray")
+        screen.blit(hint_text, (260, base_y + len(menu_items) * 40 + 10))

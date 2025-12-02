@@ -67,6 +67,9 @@ def run() -> None:
     current_high_score = get_high_score(high_scores, difficulty_name)
     run_recorded = False
 
+    PAUSE_MENU_ITEMS = ["Resume", "Restart", "Change Difficulty", "Quit"]
+    pause_menu_index = 0
+
     remap_mode = False
     remap_order: list[str] = []
     remap_index = 0
@@ -137,7 +140,7 @@ def run() -> None:
         nonlocal clyde_x, clyde_y, clyde_direction
         nonlocal eaten_ghost, blinky_dead, inky_dead, pinky_dead, clyde_dead
         nonlocal powerup, power_counter, startup_counter, paused, remap_mode, remap_prompt
-        nonlocal run_recorded
+        nonlocal run_recorded, pause_menu_index
 
         powerup = False
         power_counter = 0
@@ -146,6 +149,7 @@ def run() -> None:
         remap_mode = False
         remap_prompt = None
         run_recorded = False
+        pause_menu_index = 0
 
         player_x, player_y = PLAYER_START_X, PLAYER_START_Y
         direction = 0
@@ -350,6 +354,7 @@ def run() -> None:
             game_won,
             player_images,
             paused,
+            pause_menu_index,
             difficulty_name,
             current_level_index,
             total_levels,
@@ -580,6 +585,33 @@ def run() -> None:
                     and not game_won
                 ):
                     paused = not paused
+                    if paused:
+                        pause_menu_index = 0
+                    continue
+
+                if paused and not game_over and not game_won:
+                    if event.key in (pygame.K_UP, pygame.K_w):
+                        pause_menu_index = (pause_menu_index - 1) % len(
+                            PAUSE_MENU_ITEMS
+                        )
+                    elif event.key in (pygame.K_DOWN, pygame.K_s):
+                        pause_menu_index = (pause_menu_index + 1) % len(
+                            PAUSE_MENU_ITEMS
+                        )
+                    elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                        selected = PAUSE_MENU_ITEMS[pause_menu_index]
+                        if selected == "Resume":
+                            paused = False
+                        elif selected == "Restart":
+                            full_restart()
+                        elif selected == "Change Difficulty":
+                            names = list(DIFFICULTIES.keys())
+                            idx = names.index(difficulty_name)
+                            new_name = names[(idx + 1) % len(names)]
+                            apply_difficulty(new_name)
+                        elif selected == "Quit":
+                            running = False
+
                     continue
 
                 if not (paused or remap_mode or game_over or game_won):
