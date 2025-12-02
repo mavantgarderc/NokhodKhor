@@ -13,7 +13,7 @@ def draw_player(
     player_y: float,
     direction: int,
 ) -> None:
-    """Draw the player sprite with the correct orientation and animation frame."""
+
     frame = counter // 5
     img = player_images[frame]
 
@@ -33,48 +33,53 @@ def check_position(
     direction: int,
     level: List[List[int]],
 ) -> List[bool]:
-    """Return allowed turns [R, L, U, D] for the player at given center position."""
+
     turns = [False, False, False, False]
     num1 = (HEIGHT - 50) // 32
     num2 = WIDTH // 30
     num3 = 15
 
+    def idx_row(y_val: float) -> int:
+        return int(y_val // num1)
+
+    def idx_col(x_val: float) -> int:
+        return int(x_val // num2)
+
     if centerx // 30 < 29:
         if direction == 0:
-            if level[centery // num1][(centerx - num3) // num2] < 3:
+            if level[idx_row(centery)][idx_col(centerx - num3)] < 3:
                 turns[1] = True
         if direction == 1:
-            if level[centery // num1][(centerx + num3) // num2] < 3:
+            if level[idx_row(centery)][idx_col(centerx + num3)] < 3:
                 turns[0] = True
         if direction == 2:
-            if level[(centery + num3) // num1][centerx // num2] < 3:
+            if level[idx_row(centery + num3)][idx_col(centerx)] < 3:
                 turns[3] = True
         if direction == 3:
-            if level[(centery - num3) // num1][centerx // num2] < 3:
+            if level[idx_row(centery - num3)][idx_col(centerx)] < 3:
                 turns[2] = True
 
         if direction == 2 or direction == 3:
             if 12 <= centerx % num2 <= 18:
-                if level[(centery + num3) // num1][centerx // num2] < 3:
+                if level[idx_row(centery + num3)][idx_col(centerx)] < 3:
                     turns[3] = True
-                if level[(centery - num3) // num1][centerx // num2] < 3:
+                if level[idx_row(centery - num3)][idx_col(centerx)] < 3:
                     turns[2] = True
             if 12 <= centery % num1 <= 18:
-                if level[centery // num1][(centerx - num2) // num2] < 3:
+                if level[idx_row(centery)][idx_col(centerx - num2)] < 3:
                     turns[1] = True
-                if level[centery // num1][(centerx + num2) // num2] < 3:
+                if level[idx_row(centery)][idx_col(centerx + num2)] < 3:
                     turns[0] = True
-
         if direction == 0 or direction == 1:
             if 12 <= centerx % num2 <= 18:
-                if level[(centery + num1) // num1][centerx // num2] < 3:
+                if level[idx_row(centery + num1)][idx_col(centerx)] < 3:
                     turns[3] = True
-                if level[(centery - num1) // num1][centerx // num2] < 3:
+                if level[idx_row(centery - num1)][idx_col(centerx)] < 3:
                     turns[2] = True
             if 12 <= centery % num1 <= 18:
-                if level[centery // num1][(centerx - num3) // num2] < 3:
+                if level[idx_row(centery)][idx_col(centerx - num3)] < 3:
                     turns[1] = True
-                if level[centery // num1][(centerx + num3) // num2] < 3:
+                if level[idx_row(centery)][idx_col(centerx + num3)] < 3:
                     turns[0] = True
     else:
         turns[0] = True
@@ -90,7 +95,7 @@ def move_player(
     turns_allowed: List[bool],
     player_speed: float,
 ) -> Tuple[float, float]:
-    """Move the player according to current direction and allowed turns."""
+
     # r, l, u, d
     if direction == 0 and turns_allowed[0]:
         play_x += player_speed
@@ -113,13 +118,13 @@ def check_collisions(
     center_y: float,
     level: List[List[int]],
 ) -> Tuple[int, bool, int, List[bool]]:
-    """Handle pellet / power-pellet collisions and scoring."""
+
     num1 = (HEIGHT - 50) // 32
     num2 = WIDTH // 30
 
     if 0 < player_x < 870:
-        row = center_y // num1
-        col = center_x // num2
+        row = int(center_y // num1)
+        col = int(center_x // num2)
         if level[row][col] == 1:
             level[row][col] = 0
             score += 10

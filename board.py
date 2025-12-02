@@ -1,10 +1,9 @@
 from typing import List
+
 import pygame
 
-from config import WIDTH, HEIGHT, COLOR_WALL, PI
+from config import COLOR_WALL, HEIGHT, PI, WIDTH
 
-# LEVELS
-# Wrap each level array in a list to support multiple levels later
 boards: List[List[List[int]]] = [
     [
         [
@@ -1068,7 +1067,7 @@ boards: List[List[List[int]]] = [
 
 
 def draw_board(screen: pygame.Surface, level: List[List[int]], flicker: bool) -> None:
-    """Draw pellets and walls for the current level."""
+
     num1 = (HEIGHT - 50) // 32
     num2 = WIDTH // 30
 

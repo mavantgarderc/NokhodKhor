@@ -3,23 +3,10 @@ import copy
 import pygame
 
 from board import boards, draw_board
-from config import (
-    BLINKY_START,
-    CLYDE_START,
-    COLOR_BG,
-    FONT_NAME,
-    FONT_SIZE,
-    FPS,
-    HEIGHT,
-    INKY_START,
-    PINKY_START,
-    PLAYER_SPEED,
-    PLAYER_START_X,
-    PLAYER_START_Y,
-    POWERUP_DURATION_FRAMES,
-    STARTUP_DELAY_FRAMES,
-    WIDTH,
-)
+from config import (BLINKY_START, CLYDE_START, COLOR_BG, DEFAULT_DIFFICULTY,
+                    DEFAULT_KEY_BINDINGS, DIFFICULTIES, FONT_NAME, FONT_SIZE,
+                    FPS, HEIGHT, INKY_START, PINKY_START, PLAYER_START_X,
+                    PLAYER_START_Y, STARTUP_DELAY_FRAMES, WIDTH)
 from ghosts import Ghost
 from hud import draw_misc
 from player import check_collisions, check_position, draw_player, move_player
@@ -31,7 +18,6 @@ def run() -> None:
     timer = pygame.time.Clock()
     font = pygame.font.Font(FONT_NAME, FONT_SIZE)
 
-    # Assets
     player_images = []
     for i in range(1, 5):
         player_images.append(
@@ -58,19 +44,45 @@ def run() -> None:
         pygame.image.load("assets/ghost_images/dead.png"), (42, 42)
     )
 
-    # Game state
-    level = copy.deepcopy(boards[0])
+    difficulty_name = DEFAULT_DIFFICULTY
+    difficulty = DIFFICULTIES[difficulty_name]
+    player_speed = difficulty["player_speed"]
+    powerup_duration_frames = difficulty["powerup_duration"]
+    max_lives = difficulty["lives"]
+
+    key_bindings = DEFAULT_KEY_BINDINGS.copy()
+    ACTION_LABELS = {
+        "move_right": "Move Right",
+        "move_left": "Move Left",
+        "move_up": "Move Up",
+        "move_down": "Move Down",
+        "pause": "Pause / Resume",
+        "restart": "Restart",
+    }
+
+    remap_mode = False
+    remap_order: list[str] = []
+    remap_index = 0
+    remap_prompt: str | None = None
+
+    current_level_index = 0
+    total_levels = len(boards)
+    level = copy.deepcopy(boards[current_level_index])
 
     player_x = PLAYER_START_X
     player_y = PLAYER_START_Y
     direction = 0
     direction_command = 0
-    player_speed = PLAYER_SPEED
 
     blinky_x, blinky_y, blinky_direction = BLINKY_START
     inky_x, inky_y, inky_direction = INKY_START
     pinky_x, pinky_y, pinky_direction = PINKY_START
     clyde_x, clyde_y, clyde_direction = CLYDE_START
+
+    blinky_dead = False
+    inky_dead = False
+    clyde_dead = False
+    pinky_dead = False
 
     counter = 0
     flicker = False
@@ -87,33 +99,42 @@ def run() -> None:
         (player_x, player_y),
     ]
 
-    blinky_dead = False
-    inky_dead = False
-    clyde_dead = False
-    pinky_dead = False
-
-    moving = False
     ghost_speeds = [2, 2, 2, 2]
     startup_counter = 0
-    lives = 3
+    lives = max_lives
     game_over = False
     game_won = False
+    moving = False
+    paused = False
 
     running = True
 
+    def apply_difficulty(name: str) -> None:
+
+        nonlocal difficulty_name, difficulty
+        nonlocal player_speed, powerup_duration_frames, max_lives
+        difficulty_name = name
+        difficulty = DIFFICULTIES[difficulty_name]
+        player_speed = difficulty["player_speed"]
+        powerup_duration_frames = difficulty["powerup_duration"]
+        max_lives = difficulty["lives"]
+
     def soft_reset() -> None:
-        """Reset positions / directions / powerup state after losing a life."""
+
         nonlocal player_x, player_y, direction, direction_command
         nonlocal blinky_x, blinky_y, blinky_direction
         nonlocal inky_x, inky_y, inky_direction
         nonlocal pinky_x, pinky_y, pinky_direction
         nonlocal clyde_x, clyde_y, clyde_direction
         nonlocal eaten_ghost, blinky_dead, inky_dead, pinky_dead, clyde_dead
-        nonlocal powerup, power_counter, startup_counter
+        nonlocal powerup, power_counter, startup_counter, paused, remap_mode, remap_prompt
 
         powerup = False
         power_counter = 0
         startup_counter = 0
+        paused = False
+        remap_mode = False
+        remap_prompt = None
 
         player_x, player_y = PLAYER_START_X, PLAYER_START_Y
         direction = 0
@@ -130,81 +151,129 @@ def run() -> None:
         pinky_dead = False
         clyde_dead = False
 
-    def full_restart() -> None:
-        """Full game restart from SPACE after game over / victory."""
-        nonlocal score, lives, level, game_over, game_won
+    def load_level(idx: int) -> None:
+
+        nonlocal level, current_level_index
+        current_level_index = idx
+        level = copy.deepcopy(boards[current_level_index])
         soft_reset()
+
+    def full_restart() -> None:
+
+        nonlocal score, lives, level, game_over, game_won
         score = 0
-        lives = 3
-        level = copy.deepcopy(boards[0])
+        lives = max_lives
+        load_level(0)
         game_over = False
         game_won = False
+
+    def start_remap_mode() -> None:
+        nonlocal remap_mode, remap_order, remap_index, remap_prompt, paused
+        remap_mode = True
+        paused = True
+        remap_order = [
+            "move_right",
+            "move_left",
+            "move_up",
+            "move_down",
+            "pause",
+            "restart",
+        ]
+        remap_index = 0
+        remap_prompt = ACTION_LABELS[remap_order[remap_index]]
+
+    def handle_remap_key(key: int) -> None:
+        nonlocal remap_mode, remap_index, remap_prompt, paused
+
+        if key == pygame.K_ESCAPE:
+            remap_mode = False
+            remap_prompt = None
+            paused = False
+            return
+
+        action = remap_order[remap_index]
+        key_bindings[action] = key
+        remap_index += 1
+        if remap_index >= len(remap_order):
+            remap_mode = False
+            remap_prompt = None
+            paused = False
+        else:
+            remap_prompt = ACTION_LABELS[remap_order[remap_index]]
 
     while running:
         timer.tick(FPS)
 
-        # Animation counter & powerup flicker
-        if counter < 19:
-            counter += 1
-            if counter > 3:
-                flicker = False
-        else:
-            counter = 0
-            flicker = True
+        if not paused and not remap_mode:
 
-        # Powerup timer
-        if powerup and power_counter < POWERUP_DURATION_FRAMES:
-            power_counter += 1
-        elif powerup and power_counter >= POWERUP_DURATION_FRAMES:
-            power_counter = 0
-            powerup = False
-            eaten_ghost = [False, False, False, False]
+            if counter < 19:
+                counter += 1
+                if counter > 3:
+                    flicker = False
+            else:
+                counter = 0
+                flicker = True
 
-        # Startup delay
-        if startup_counter < STARTUP_DELAY_FRAMES and not game_over and not game_won:
-            moving = False
-            startup_counter += 1
-        else:
-            moving = True
+            if powerup and power_counter < powerup_duration_frames:
+                power_counter += 1
+            elif powerup and power_counter >= powerup_duration_frames:
+                power_counter = 0
+                powerup = False
+                eaten_ghost = [False, False, False, False]
 
-        # Background & board
+            if (
+                startup_counter < STARTUP_DELAY_FRAMES
+                and not game_over
+                and not game_won
+            ):
+                moving = False
+                startup_counter += 1
+            else:
+                moving = True
+
         screen.fill(COLOR_BG)
         draw_board(screen, level, flicker)
 
         center_x = player_x + 23
         center_y = player_y + 24
 
-        # Ghost speeds
         if powerup:
-            ghost_speeds = [1, 1, 1, 1]
+            ghost_speeds = [difficulty["frightened_speed"]] * 4
         else:
-            ghost_speeds = [2, 2, 2, 2]
+            ghost_speeds = [difficulty["ghost_speed"]] * 4
 
         for idx in range(4):
             if eaten_ghost[idx]:
-                ghost_speeds[idx] = 2
+                ghost_speeds[idx] = difficulty["ghost_speed"]
 
         if blinky_dead:
-            ghost_speeds[0] = 4
+            ghost_speeds[0] = difficulty["eaten_speed"]
         if inky_dead:
-            ghost_speeds[1] = 4
+            ghost_speeds[1] = difficulty["eaten_speed"]
         if pinky_dead:
-            ghost_speeds[2] = 4
+            ghost_speeds[2] = difficulty["eaten_speed"]
         if clyde_dead:
-            ghost_speeds[3] = 4
+            ghost_speeds[3] = difficulty["eaten_speed"]
 
-        # Win condition
-        game_won = True
+        level_cleared = True
         for row in level:
             if 1 in row or 2 in row:
-                game_won = False
+                level_cleared = False
                 break
 
-        # Player
+        if level_cleared and not game_over and not game_won:
+            if current_level_index + 1 < total_levels:
+                load_level(current_level_index + 1)
+
+                pygame.display.flip()
+                continue
+            else:
+                game_won = True
+                moving = False
+
         player_circle = pygame.draw.circle(screen, "black", (center_x, center_y), 20, 2)
         draw_player(screen, player_images, counter, player_x, player_y, direction)
 
-        # Ghosts: instantiate, update collisions, draw
         blinky = Ghost(
             blinky_x,
             blinky_y,
@@ -250,7 +319,6 @@ def run() -> None:
             ghost.update_collision_state(level)
             ghost.draw(screen, powerup, eaten_ghost, spooked_img, dead_img)
 
-        # HUD
         draw_misc(
             screen,
             font,
@@ -260,9 +328,13 @@ def run() -> None:
             game_over,
             game_won,
             player_images,
+            paused,
+            difficulty_name,
+            current_level_index,
+            total_levels,
+            remap_prompt,
         )
 
-        # Targets (keep your original targeting logic, with fixed Pinky bug)
         def get_targets(
             blink_x,
             blink_y,
@@ -302,7 +374,6 @@ def run() -> None:
                         ink_target = (player_x, player_y)
                 else:
                     ink_target = return_target
-                # Pinky: fixed, now uses eaten_ghost[2]
                 if not pinky.dead and not eaten_ghost[2]:
                     pink_target = (player_x, runaway_y)
                 elif not pinky.dead and eaten_ghost[2]:
@@ -356,12 +427,16 @@ def run() -> None:
             blinky_x, blinky_y, inky_x, inky_y, pinky_x, pinky_y, clyde_x, clyde_y
         )
 
-        # Player movement
-        turns_allowed = check_position(center_x, center_y, direction, level)
-        if moving:
+        can_update_positions = (
+            moving and not paused and not remap_mode and not game_over and not game_won
+        )
+
+        if can_update_positions:
+            turns_allowed = check_position(center_x, center_y, direction, level)
             player_x, player_y = move_player(
                 player_x, player_y, direction, turns_allowed, player_speed
             )
+
             if not blinky_dead and not blinky.in_box:
                 blinky_x, blinky_y, blinky_direction = blinky.move_blinky()
             else:
@@ -375,8 +450,10 @@ def run() -> None:
             else:
                 inky_x, inky_y, inky_direction = inky.move_clyde()
             clyde_x, clyde_y, clyde_direction = clyde.move_clyde()
+        else:
 
-        # Pellet / powerups
+            turns_allowed = check_position(center_x, center_y, direction, level)
+
         score, powerup, power_counter, eaten_ghost = check_collisions(
             score,
             powerup,
@@ -388,8 +465,7 @@ def run() -> None:
             level,
         )
 
-        # Collisions when not powered
-        if not powerup:
+        if not powerup and not (paused or remap_mode or game_over or game_won):
             if (
                 (player_circle.colliderect(blinky.rect) and not blinky.dead)
                 or (player_circle.colliderect(inky.rect) and not inky.dead)
@@ -404,14 +480,14 @@ def run() -> None:
                     moving = False
                     startup_counter = 0
 
-        # Collisions when powered but re-hit an already "eaten" ghost
-        def handle_power_collision_already_eaten(ghost_obj, idx: int, dead_flag: bool):
-            nonlocal lives, game_over, moving, startup_counter, powerup
+        def handle_power_collision_already_eaten(ghost_obj, idx: int):
+            nonlocal lives, game_over, moving, startup_counter
             if (
                 powerup
                 and player_circle.colliderect(ghost_obj.rect)
                 and eaten_ghost[idx]
                 and not ghost_obj.dead
+                and not (paused or remap_mode or game_over or game_won)
             ):
                 if lives > 0:
                     lives -= 1
@@ -421,12 +497,11 @@ def run() -> None:
                     moving = False
                     startup_counter = 0
 
-        handle_power_collision_already_eaten(blinky, 0, blinky_dead)
-        handle_power_collision_already_eaten(inky, 1, inky_dead)
-        handle_power_collision_already_eaten(pinky, 2, pinky_dead)
-        handle_power_collision_already_eaten(clyde, 3, clyde_dead)
+        handle_power_collision_already_eaten(blinky, 0)
+        handle_power_collision_already_eaten(inky, 1)
+        handle_power_collision_already_eaten(pinky, 2)
+        handle_power_collision_already_eaten(clyde, 3)
 
-        # Collisions when powered and eating ghosts
         def eat_ghost_if_possible(ghost_obj, idx: int, dead_flag_name: str):
             nonlocal score, blinky_dead, inky_dead, pinky_dead, clyde_dead
             if (
@@ -434,6 +509,7 @@ def run() -> None:
                 and player_circle.colliderect(ghost_obj.rect)
                 and not ghost_obj.dead
                 and not eaten_ghost[idx]
+                and not (paused or remap_mode or game_over or game_won)
             ):
                 if dead_flag_name == "blinky":
                     blinky_dead = True
@@ -451,33 +527,60 @@ def run() -> None:
         eat_ghost_if_possible(pinky, 2, "pinky")
         eat_ghost_if_possible(clyde, 3, "clyde")
 
-        # Event handling
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_RIGHT:
-                    direction_command = 0
-                if event.key == pygame.K_LEFT:
-                    direction_command = 1
-                if event.key == pygame.K_UP:
-                    direction_command = 2
-                if event.key == pygame.K_DOWN:
-                    direction_command = 3
-                if event.key == pygame.K_SPACE and (game_over or game_won):
+
+                if remap_mode:
+                    handle_remap_key(event.key)
+                    continue
+
+                if event.key == pygame.K_F5:
+                    start_remap_mode()
+                    continue
+
+                if event.key == pygame.K_1:
+                    apply_difficulty("easy")
+                elif event.key == pygame.K_2:
+                    apply_difficulty("normal")
+                elif event.key == pygame.K_3:
+                    apply_difficulty("hard")
+
+                if event.key == key_bindings["restart"] and (game_over or game_won):
                     full_restart()
+                    continue
 
-            if event.type == pygame.KEYUP:
-                if event.key == pygame.K_RIGHT and direction_command == 0:
+                if (
+                    event.key == key_bindings["pause"]
+                    and not game_over
+                    and not game_won
+                ):
+                    paused = not paused
+                    continue
+
+                if not (paused or remap_mode or game_over or game_won):
+                    if event.key == key_bindings["move_right"]:
+                        direction_command = 0
+                    if event.key == key_bindings["move_left"]:
+                        direction_command = 1
+                    if event.key == key_bindings["move_up"]:
+                        direction_command = 2
+                    if event.key == key_bindings["move_down"]:
+                        direction_command = 3
+
+            if event.type == pygame.KEYUP and not remap_mode:
+
+                if event.key == key_bindings["move_right"] and direction_command == 0:
                     direction_command = direction
-                if event.key == pygame.K_LEFT and direction_command == 1:
+                if event.key == key_bindings["move_left"] and direction_command == 1:
                     direction_command = direction
-                if event.key == pygame.K_UP and direction_command == 2:
+                if event.key == key_bindings["move_up"] and direction_command == 2:
                     direction_command = direction
-                if event.key == pygame.K_DOWN and direction_command == 3:
+                if event.key == key_bindings["move_down"] and direction_command == 3:
                     direction_command = direction
 
-        # Direction change when allowed
         if direction_command == 0 and turns_allowed[0]:
             direction = 0
         if direction_command == 1 and turns_allowed[1]:
@@ -487,13 +590,11 @@ def run() -> None:
         if direction_command == 3 and turns_allowed[3]:
             direction = 3
 
-        # Player wrap
         if player_x > WIDTH:
             player_x = -47
         elif player_x < -50:
             player_x = WIDTH - 3
 
-        # Ghosts re-enter box after being eaten
         if blinky.in_box and blinky_dead:
             blinky_dead = False
         if inky.in_box and inky_dead:
