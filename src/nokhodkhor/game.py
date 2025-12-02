@@ -1,8 +1,8 @@
 import copy
 
 import pygame
-from board import boards, draw_board
 
+from .board import boards, draw_board
 from .config import (ACTION_LABELS, ACTION_ORDER, BLINKY_START, CLYDE_START,
                      COLOR_BG, DEFAULT_DIFFICULTY, DEFAULT_KEY_BINDINGS,
                      DIFFICULTIES, FONT_NAME, FONT_SIZE, FPS, HEIGHT,
