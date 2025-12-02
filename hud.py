@@ -17,21 +17,26 @@ def draw_misc(
     total_levels: int,
     remap_prompt: str | None = None,
 ) -> None:
+
     score_text = font.render(f"Score: {score}", True, "white")
+    high_text = font.render(f"High: {high_score}", True, "yellow")
     screen.blit(score_text, (10, 920))
     screen.blit(high_text, (200, 920))
 
     if powerup:
         pygame.draw.circle(screen, "blue", (140, 930), 15)
+
     for i in range(lives):
         screen.blit(
             pygame.transform.scale(player_images[0], (30, 30)),
+            (650 + i * 40, 915),
         )
 
     status_text = (
         f"Level {level_index + 1}/{total_levels}  |  "
         f"Difficulty: {difficulty_name.capitalize()}"
     )
+    status_surf = font.render(status_text, True, "white")
     screen.blit(status_surf, (10, 890))
 
     hints_text = "F5: Remap keys | 1/2/3: Easy/Normal/Hard"
@@ -39,10 +44,12 @@ def draw_misc(
     screen.blit(hints_surf, (10, 870))
 
     if game_over:
+        pygame.draw.rect(screen, "white", [50, 200, 800, 300], 0, 10)
         pygame.draw.rect(screen, "dark gray", [70, 220, 760, 260], 0, 10)
         gameover_text = font.render(
             "Game over! Restart key to play again!", True, "red"
         )
+        screen.blit(gameover_text, (100, 300))
 
     if game_won:
         pygame.draw.rect(screen, "white", [50, 200, 800, 300], 0, 10)
@@ -59,5 +66,5 @@ def draw_misc(
         screen.blit(pause_text, (150, 320))
 
     if remap_prompt is not None:
+        remap_text = font.render(f"Remapping controls: {remap_prompt}", True, "cyan")
         screen.blit(remap_text, (150, 360))
-
