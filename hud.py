@@ -5,6 +5,7 @@ def draw_misc(
     screen: pygame.Surface,
     font: pygame.font.Font,
     score: int,
+    high_score: int,
     powerup: bool,
     lives: int,
     game_over: bool,
@@ -17,6 +18,8 @@ def draw_misc(
     remap_prompt: str | None = None,
 ) -> None:
     score_text = font.render(f"Score: {score}", True, "white")
+    screen.blit(score_text, (10, 920))
+    screen.blit(high_text, (200, 920))
 
     if powerup:
         pygame.draw.circle(screen, "blue", (140, 930), 15)
@@ -25,10 +28,13 @@ def draw_misc(
             pygame.transform.scale(player_images[0], (30, 30)),
         )
 
-    status_text = f"Level {level_index + 1}/{total_levels}  |  Difficulty: {difficulty_name.capitalize()}"
-    status_surf = font.render(status_text, True, "white")
+    status_text = (
+        f"Level {level_index + 1}/{total_levels}  |  "
+        f"Difficulty: {difficulty_name.capitalize()}"
+    )
     screen.blit(status_surf, (10, 890))
 
+    hints_text = "F5: Remap keys | 1/2/3: Easy/Normal/Hard"
     hints_surf = font.render(hints_text, True, "gray")
     screen.blit(hints_surf, (10, 870))
 
@@ -54,3 +60,4 @@ def draw_misc(
 
     if remap_prompt is not None:
         screen.blit(remap_text, (150, 360))
+

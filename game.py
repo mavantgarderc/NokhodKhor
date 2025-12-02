@@ -10,6 +10,8 @@ from config import (BLINKY_START, CLYDE_START, COLOR_BG, DEFAULT_DIFFICULTY,
 from ghosts import Ghost
 from hud import draw_misc
 from player import check_collisions, check_position, draw_player, move_player
+from scores import (get_high_score, load_high_scores, maybe_update_high_score,
+                    save_high_scores)
 
 
 def run() -> None:
@@ -46,6 +48,7 @@ def run() -> None:
 
     difficulty_name = DEFAULT_DIFFICULTY
     difficulty = DIFFICULTIES[difficulty_name]
+
     player_speed = difficulty["player_speed"]
     powerup_duration_frames = difficulty["powerup_duration"]
     max_lives = difficulty["lives"]
@@ -59,6 +62,10 @@ def run() -> None:
         "pause": "Pause / Resume",
         "restart": "Restart",
     }
+
+    high_scores = load_high_scores()
+    current_high_score = get_high_score(high_scores, difficulty_name)
+    run_recorded = False
 
     remap_mode = False
     remap_order: list[str] = []
@@ -113,11 +120,13 @@ def run() -> None:
 
         nonlocal difficulty_name, difficulty
         nonlocal player_speed, powerup_duration_frames, max_lives
+        nonlocal current_high_score
         difficulty_name = name
         difficulty = DIFFICULTIES[difficulty_name]
         player_speed = difficulty["player_speed"]
         powerup_duration_frames = difficulty["powerup_duration"]
         max_lives = difficulty["lives"]
+        current_high_score = get_high_score(high_scores, difficulty_name)
 
     def soft_reset() -> None:
 
@@ -128,6 +137,7 @@ def run() -> None:
         nonlocal clyde_x, clyde_y, clyde_direction
         nonlocal eaten_ghost, blinky_dead, inky_dead, pinky_dead, clyde_dead
         nonlocal powerup, power_counter, startup_counter, paused, remap_mode, remap_prompt
+        nonlocal run_recorded
 
         powerup = False
         power_counter = 0
@@ -135,6 +145,7 @@ def run() -> None:
         paused = False
         remap_mode = False
         remap_prompt = None
+        run_recorded = False
 
         player_x, player_y = PLAYER_START_X, PLAYER_START_Y
         direction = 0
@@ -160,9 +171,10 @@ def run() -> None:
 
     def full_restart() -> None:
 
-        nonlocal score, lives, level, game_over, game_won
+        nonlocal score, lives, level, game_over, game_won, run_recorded
         score = 0
         lives = max_lives
+        run_recorded = False
         load_level(0)
         game_over = False
         game_won = False
@@ -200,6 +212,15 @@ def run() -> None:
             paused = False
         else:
             remap_prompt = ACTION_LABELS[remap_order[remap_index]]
+
+    def finalize_run_if_needed() -> None:
+
+        nonlocal run_recorded, current_high_score
+        if (game_over or game_won) and not run_recorded:
+            if maybe_update_high_score(high_scores, difficulty_name, score):
+                save_high_scores(high_scores)
+            current_high_score = get_high_score(high_scores, difficulty_name)
+            run_recorded = True
 
     while running:
         timer.tick(FPS)
@@ -264,7 +285,6 @@ def run() -> None:
         if level_cleared and not game_over and not game_won:
             if current_level_index + 1 < total_levels:
                 load_level(current_level_index + 1)
-
                 pygame.display.flip()
                 continue
             else:
@@ -323,6 +343,7 @@ def run() -> None:
             screen,
             font,
             score,
+            current_high_score,
             powerup,
             lives,
             game_over,
@@ -451,7 +472,6 @@ def run() -> None:
                 inky_x, inky_y, inky_direction = inky.move_clyde()
             clyde_x, clyde_y, clyde_direction = clyde.move_clyde()
         else:
-
             turns_allowed = check_position(center_x, center_y, direction, level)
 
         score, powerup, power_counter, eaten_ghost = check_collisions(
@@ -527,6 +547,8 @@ def run() -> None:
         eat_ghost_if_possible(pinky, 2, "pinky")
         eat_ghost_if_possible(clyde, 3, "clyde")
 
+        finalize_run_if_needed()
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -571,7 +593,6 @@ def run() -> None:
                         direction_command = 3
 
             if event.type == pygame.KEYUP and not remap_mode:
-
                 if event.key == key_bindings["move_right"] and direction_command == 0:
                     direction_command = direction
                 if event.key == key_bindings["move_left"] and direction_command == 1:
