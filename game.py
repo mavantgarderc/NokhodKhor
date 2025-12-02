@@ -3,10 +3,11 @@ import copy
 import pygame
 
 from board import boards, draw_board
-from config import (BLINKY_START, CLYDE_START, COLOR_BG, DEFAULT_DIFFICULTY,
-                    DEFAULT_KEY_BINDINGS, DIFFICULTIES, FONT_NAME, FONT_SIZE,
-                    FPS, HEIGHT, INKY_START, PINKY_START, PLAYER_START_X,
-                    PLAYER_START_Y, STARTUP_DELAY_FRAMES, WIDTH)
+from config import (ACTION_LABELS, ACTION_ORDER, BLINKY_START, CLYDE_START,
+                    COLOR_BG, DEFAULT_DIFFICULTY, DEFAULT_KEY_BINDINGS,
+                    DIFFICULTIES, FONT_NAME, FONT_SIZE, FPS, HEIGHT,
+                    INKY_START, PINKY_START, PLAYER_START_X, PLAYER_START_Y,
+                    STARTUP_DELAY_FRAMES, WIDTH)
 from ghosts import Ghost
 from hud import draw_misc
 from player import check_collisions, check_position, draw_player, move_player
@@ -54,14 +55,6 @@ def run() -> None:
     max_lives = difficulty["lives"]
 
     key_bindings = DEFAULT_KEY_BINDINGS.copy()
-    ACTION_LABELS = {
-        "move_right": "Move Right",
-        "move_left": "Move Left",
-        "move_up": "Move Up",
-        "move_down": "Move Down",
-        "pause": "Pause / Resume",
-        "restart": "Restart",
-    }
 
     high_scores = load_high_scores()
     current_high_score = get_high_score(high_scores, difficulty_name)
@@ -74,6 +67,8 @@ def run() -> None:
     remap_order: list[str] = []
     remap_index = 0
     remap_prompt: str | None = None
+
+    show_help = False
 
     current_level_index = 0
     total_levels = len(boards)
@@ -120,7 +115,6 @@ def run() -> None:
     running = True
 
     def apply_difficulty(name: str) -> None:
-
         nonlocal difficulty_name, difficulty
         nonlocal player_speed, powerup_duration_frames, max_lives
         nonlocal current_high_score
@@ -132,15 +126,15 @@ def run() -> None:
         current_high_score = get_high_score(high_scores, difficulty_name)
 
     def soft_reset() -> None:
-
         nonlocal player_x, player_y, direction, direction_command
         nonlocal blinky_x, blinky_y, blinky_direction
         nonlocal inky_x, inky_y, inky_direction
         nonlocal pinky_x, pinky_y, pinky_direction
         nonlocal clyde_x, clyde_y, clyde_direction
         nonlocal eaten_ghost, blinky_dead, inky_dead, pinky_dead, clyde_dead
-        nonlocal powerup, power_counter, startup_counter, paused, remap_mode, remap_prompt
-        nonlocal run_recorded, pause_menu_index
+        nonlocal powerup, power_counter, startup_counter
+        nonlocal paused, remap_mode, remap_prompt, run_recorded, pause_menu_index
+        nonlocal show_help
 
         powerup = False
         power_counter = 0
@@ -148,6 +142,7 @@ def run() -> None:
         paused = False
         remap_mode = False
         remap_prompt = None
+        show_help = False
         run_recorded = False
         pause_menu_index = 0
 
@@ -167,14 +162,12 @@ def run() -> None:
         clyde_dead = False
 
     def load_level(idx: int) -> None:
-
         nonlocal level, current_level_index
         current_level_index = idx
         level = copy.deepcopy(boards[current_level_index])
         soft_reset()
 
     def full_restart() -> None:
-
         nonlocal score, lives, level, game_over, game_won, run_recorded
         score = 0
         lives = max_lives
@@ -184,17 +177,11 @@ def run() -> None:
         game_won = False
 
     def start_remap_mode() -> None:
-        nonlocal remap_mode, remap_order, remap_index, remap_prompt, paused
+        nonlocal remap_mode, remap_order, remap_index, remap_prompt, paused, show_help
         remap_mode = True
         paused = True
-        remap_order = [
-            "move_right",
-            "move_left",
-            "move_up",
-            "move_down",
-            "pause",
-            "restart",
-        ]
+        show_help = False
+        remap_order = ACTION_ORDER.copy()
         remap_index = 0
         remap_prompt = ACTION_LABELS[remap_order[remap_index]]
 
@@ -218,7 +205,6 @@ def run() -> None:
             remap_prompt = ACTION_LABELS[remap_order[remap_index]]
 
     def finalize_run_if_needed() -> None:
-
         nonlocal run_recorded, current_high_score
         if (game_over or game_won) and not run_recorded:
             if maybe_update_high_score(high_scores, difficulty_name, score):
@@ -226,11 +212,19 @@ def run() -> None:
             current_high_score = get_high_score(high_scores, difficulty_name)
             run_recorded = True
 
+    def build_bindings_display() -> list[tuple[str, str]]:
+        pairs: list[tuple[str, str]] = []
+        for action in ACTION_ORDER:
+            key_code = key_bindings[action]
+            key_name = pygame.key.name(key_code)
+            label = ACTION_LABELS[action]
+            pairs.append((label, key_name))
+        return pairs
+
     while running:
         timer.tick(FPS)
 
-        if not paused and not remap_mode:
-
+        if not paused and not remap_mode and not show_help:
             if counter < 19:
                 counter += 1
                 if counter > 3:
@@ -343,6 +337,7 @@ def run() -> None:
             ghost.update_collision_state(level)
             ghost.draw(screen, powerup, eaten_ghost, spooked_img, dead_img)
 
+        bindings_display = build_bindings_display()
         draw_misc(
             screen,
             font,
@@ -358,6 +353,8 @@ def run() -> None:
             difficulty_name,
             current_level_index,
             total_levels,
+            show_help,
+            bindings_display,
             remap_prompt,
         )
 
@@ -454,7 +451,12 @@ def run() -> None:
         )
 
         can_update_positions = (
-            moving and not paused and not remap_mode and not game_over and not game_won
+            moving
+            and not paused
+            and not remap_mode
+            and not show_help
+            and not game_over
+            and not game_won
         )
 
         if can_update_positions:
@@ -490,7 +492,9 @@ def run() -> None:
             level,
         )
 
-        if not powerup and not (paused or remap_mode or game_over or game_won):
+        if not powerup and not (
+            paused or remap_mode or show_help or game_over or game_won
+        ):
             if (
                 (player_circle.colliderect(blinky.rect) and not blinky.dead)
                 or (player_circle.colliderect(inky.rect) and not inky.dead)
@@ -512,7 +516,7 @@ def run() -> None:
                 and player_circle.colliderect(ghost_obj.rect)
                 and eaten_ghost[idx]
                 and not ghost_obj.dead
-                and not (paused or remap_mode or game_over or game_won)
+                and not (paused or remap_mode or show_help or game_over or game_won)
             ):
                 if lives > 0:
                     lives -= 1
@@ -534,7 +538,7 @@ def run() -> None:
                 and player_circle.colliderect(ghost_obj.rect)
                 and not ghost_obj.dead
                 and not eaten_ghost[idx]
-                and not (paused or remap_mode or game_over or game_won)
+                and not (paused or remap_mode or show_help or game_over or game_won)
             ):
                 if dead_flag_name == "blinky":
                     blinky_dead = True
@@ -566,6 +570,10 @@ def run() -> None:
 
                 if event.key == pygame.K_F5:
                     start_remap_mode()
+                    continue
+
+                if event.key == pygame.K_h and not (game_over or game_won):
+                    show_help = not show_help
                     continue
 
                 if event.key == pygame.K_1:
@@ -614,7 +622,7 @@ def run() -> None:
 
                     continue
 
-                if not (paused or remap_mode or game_over or game_won):
+                if not (paused or remap_mode or show_help or game_over or game_won):
                     if event.key == key_bindings["move_right"]:
                         direction_command = 0
                     if event.key == key_bindings["move_left"]:

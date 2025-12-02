@@ -16,6 +16,8 @@ def draw_misc(
     difficulty_name: str,
     level_index: int,
     total_levels: int,
+    show_help: bool,
+    bindings_display: list[tuple[str, str]] | None,
     remap_prompt: str | None = None,
 ) -> None:
 
@@ -40,7 +42,7 @@ def draw_misc(
     status_surf = font.render(status_text, True, "white")
     screen.blit(status_surf, (10, 890))
 
-    hints_text = "F5: Remap keys | 1/2/3: Easy/Normal/Hard"
+    hints_text = "H: Help/Controls | F5: Remap keys | 1/2/3: Easy/Normal/Hard"
     hints_surf = font.render(hints_text, True, "gray")
     screen.blit(hints_surf, (10, 870))
 
@@ -69,6 +71,26 @@ def draw_misc(
         screen.blit(remap_text, (150, 330))
         cancel_text = font.render("ESC to cancel remap", True, "gray")
         screen.blit(cancel_text, (150, 370))
+        return
+
+    if show_help and not (game_over or game_won):
+        pygame.draw.rect(screen, "white", [100, 150, 700, 500], 0, 10)
+        pygame.draw.rect(screen, "darkgray", [120, 170, 660, 460], 0, 10)
+
+        title_text = font.render("Controls", True, "yellow")
+        screen.blit(title_text, (150, 190))
+
+        if bindings_display is None:
+            bindings_display = []
+
+        base_y = 230
+        for idx, (label, key_name) in enumerate(bindings_display):
+            line = f"{label}: {key_name.upper()}"
+            text_surf = font.render(line, True, "white")
+            screen.blit(text_surf, (150, base_y + idx * 30))
+
+        hint_text = font.render("Press H to close this screen", True, "gray")
+        screen.blit(hint_text, (150, base_y + len(bindings_display) * 30 + 20))
         return
 
     if paused and not (game_over or game_won):

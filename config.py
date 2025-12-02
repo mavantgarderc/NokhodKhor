@@ -70,3 +70,23 @@ DEFAULT_KEY_BINDINGS = {
     "pause": pygame.K_p,
     "restart": pygame.K_SPACE,
 }
+
+
+ACTION_LABELS = {
+    "move_right": "Move Right",
+    "move_left": "Move Left",
+    "move_up": "Move Up",
+    "move_down": "Move Down",
+    "pause": "Pause / Resume",
+    "restart": "Restart",
+}
+
+
+ACTION_ORDER = [
+    "move_right",
+    "move_left",
+    "move_up",
+    "move_down",
+    "pause",
+    "restart",
+]
