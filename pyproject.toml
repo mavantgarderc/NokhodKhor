@@ -13,10 +13,10 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [tool.black]
-line-length = 88
+line-length = 108
 target-version = ["py39"]
 
 [tool.ruff]
-line-length = 88
+line-length = 108
 select = ["E", "F", "I"]
 src = ["src"]
