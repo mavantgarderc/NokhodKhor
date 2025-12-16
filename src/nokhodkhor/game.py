@@ -349,8 +349,9 @@ def run() -> None:
 
         player_circle = pygame.draw.circle(screen, "black", (center_x, center_y), 20, 2)
         draw_player(screen, player_images, counter, player_x, player_y, direction)
-        label1 = font.render("1", True, "white")
-        screen.blit(label1, (center_x - 5, center_y - 10))
+        if multiplayer_mode != "1P":
+            label1 = font.render("1", True, "white")
+            screen.blit(label1, (center_x - 5, center_y - 10))
 
         player2_circle = None
         if multiplayer_mode == "Co-op":
@@ -438,9 +439,12 @@ def run() -> None:
             clyd_x,
             clyd_y,
         ):
-            nonlocal level, current_level_index, multiplayer_mode
+            nonlocal level
+            nonlocal current_level_index
+            nonlocal multiplayer_mode
             nonlocal player_x, player_y, player2_x, player2_y
-            nonlocal direction, direction2, powerup, eaten_ghost
+            nonlocal direction, direction2
+            nonlocal powerup, eaten_ghost
             nonlocal game_over, game_won, paused, remap_mode, show_help
 
             if (
@@ -595,6 +599,7 @@ def run() -> None:
             clyde_chase_px = tile_to_pixel(*clyde_chase)
 
             return_target = (380, 400)
+            cage_exit_target = (400, 300)
 
             def choose_target(
                 ghost_obj,
@@ -604,6 +609,10 @@ def run() -> None:
                 runaway_px: float,
                 runaway_py: float,
             ) -> tuple[float, float]:
+
+                if ghost_obj.in_box and not ghost_obj.dead:
+                    return cage_exit_target
+
                 if ghost_obj.dead:
                     return return_target
 
