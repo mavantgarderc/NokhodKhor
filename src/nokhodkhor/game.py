@@ -440,14 +440,15 @@ def run() -> None:
             clyd_y,
         ):
             nonlocal powerup, eaten_ghost, player_x, player_y, player2_x, player2_y
-            nonlocal multiplayer_mode
+            nonlocal multiplayer_mode, direction, direction2
 
-            def nearest_player(gx: float, gy: float) -> tuple[float, float]:
+            def nearest_player(gx: float, gy: float) -> tuple[float, float, int]:
                 gx_c = gx + 22
                 gy_c = gy + 22
+
                 p1_cx = player_x + 23
                 p1_cy = player_y + 24
-                best_x, best_y = player_x, player_y
+                best_x, best_y, best_dir = player_x, player_y, direction
                 best_d = (gx_c - p1_cx) ** 2 + (gy_c - p1_cy) ** 2
 
                 if multiplayer_mode == "Co-op":
@@ -456,9 +457,9 @@ def run() -> None:
                     d2 = (gx_c - p2_cx) ** 2 + (gy_c - p2_cy) ** 2
                     if d2 < best_d:
                         best_d = d2
-                        best_x, best_y = player2_x, player2_y
+                        best_x, best_y, best_dir = player2_x, player2_y, direction2
 
-                return best_x, best_y
+                return best_x, best_y, best_dir
 
             def runaway_for(px: float, py: float) -> tuple[int, int]:
                 if px < 450:
@@ -473,10 +474,41 @@ def run() -> None:
 
             return_target = (380, 400)
 
-            blink_px, blink_py = nearest_player(blink_x, blink_y)
-            ink_px, ink_py = nearest_player(ink_x, ink_y)
-            pink_px, pink_py = nearest_player(pink_x, pink_y)
-            clyd_px, clyd_py = nearest_player(clyd_x, clyd_y)
+            def dir_vector(dir_code: int) -> tuple[int, int]:
+                dx, dy = 0, 0
+                if dir_code == 0:
+                    dx = 1
+                elif dir_code == 1:
+                    dx = -1
+                elif dir_code == 2:
+                    dy = -1
+                elif dir_code == 3:
+                    dy = 1
+                return dx, dy
+
+            num1 = (HEIGHT - 50) // 32
+            num2 = WIDTH // 30
+
+            def ahead_pixel(px: float, py: float, dir_code: int, tiles_ahead: int) -> tuple[float, float]:
+                dx, dy = dir_vector(dir_code)
+                return (
+                    px + dx * tiles_ahead * num2,
+                    py + dy * tiles_ahead * num1,
+                )
+
+            blink_px, blink_py, blink_dir = nearest_player(blink_x, blink_y)
+            blinky_chase = (blink_px, blink_py)
+
+            ink_px, ink_py, ink_dir = nearest_player(ink_x, ink_y)
+            inky_target_px, inky_target_py = ahead_pixel(ink_px, ink_py, ink_dir, 2)
+
+            pink_px, pink_py, pink_dir = nearest_player(pink_x, pink_y)
+            pinky_target_px, pinky_target_py = ahead_pixel(pink_px, pink_py, pink_dir, 4)
+
+            clyd_px, clyd_py, clyd_dir = nearest_player(clyd_x, clyd_y)
+
+            clyde_offset_px = clyd_px + 0.5 * num2
+            clyde_offset_py = clyd_py + 0.5 * num1
 
             blink_runx, blink_runy = runaway_for(blink_px, blink_py)
             ink_runx, ink_runy = runaway_for(ink_px, ink_py)
@@ -484,13 +516,14 @@ def run() -> None:
             clyd_runx, clyd_runy = runaway_for(clyd_px, clyd_py)
 
             if powerup:
+
                 if not blinky.dead and not eaten_ghost[0]:
                     blink_target = (blink_runx, blink_runy)
                 elif not blinky.dead and eaten_ghost[0]:
                     if 340 < blink_x < 560 and 340 < blink_y < 500:
                         blink_target = (400, 100)
                     else:
-                        blink_target = (blink_px, blink_py)
+                        blink_target = blinky_chase
                 else:
                     blink_target = return_target
 
@@ -500,7 +533,7 @@ def run() -> None:
                     if 340 < ink_x < 560 and 340 < ink_y < 500:
                         ink_target = (400, 100)
                     else:
-                        ink_target = (ink_px, ink_py)
+                        ink_target = (inky_target_px, inky_target_py)
                 else:
                     ink_target = return_target
 
@@ -510,7 +543,7 @@ def run() -> None:
                     if 340 < pink_x < 560 and 340 < pink_y < 500:
                         pink_target = (400, 100)
                     else:
-                        pink_target = (pink_px, pink_py)
+                        pink_target = (pinky_target_px, pinky_target_py)
                 else:
                     pink_target = return_target
 
@@ -520,15 +553,16 @@ def run() -> None:
                     if 340 < clyd_x < 560 and 340 < clyd_y < 500:
                         clyd_target = (400, 100)
                     else:
-                        clyd_target = (clyd_px, clyd_py)
+                        clyd_target = (clyde_offset_px, clyde_offset_py)
                 else:
                     clyd_target = return_target
             else:
+
                 if not blinky.dead:
                     if 340 < blink_x < 560 and 340 < blink_y < 500:
                         blink_target = (400, 100)
                     else:
-                        blink_target = (blink_px, blink_py)
+                        blink_target = blinky_chase
                 else:
                     blink_target = return_target
 
@@ -536,7 +570,7 @@ def run() -> None:
                     if 340 < ink_x < 560 and 340 < ink_y < 500:
                         ink_target = (400, 100)
                     else:
-                        ink_target = (ink_px, ink_py)
+                        ink_target = (inky_target_px, inky_target_py)
                 else:
                     ink_target = return_target
 
@@ -544,7 +578,7 @@ def run() -> None:
                     if 340 < pink_x < 560 and 340 < pink_y < 500:
                         pink_target = (400, 100)
                     else:
-                        pink_target = (pink_px, pink_py)
+                        pink_target = (pinky_target_px, pinky_target_py)
                 else:
                     pink_target = return_target
 
@@ -552,7 +586,7 @@ def run() -> None:
                     if 340 < clyd_x < 560 and 340 < clyd_y < 500:
                         clyd_target = (400, 100)
                     else:
-                        clyd_target = (clyd_px, clyd_py)
+                        clyd_target = (clyde_offset_px, clyde_offset_py)
                 else:
                     clyd_target = return_target
 
