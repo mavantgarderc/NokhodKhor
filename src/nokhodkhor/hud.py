@@ -17,6 +17,7 @@ def draw_misc(
     paused: bool,
     pause_menu_index: int,
     difficulty_name: str,
+    theme_mode: str,
     level_index: int,
     total_levels: int,
     show_help: bool,
@@ -51,12 +52,17 @@ def draw_misc(
         mode_extra = f" | Versus: P2={ghost_name}"
     status_text = (
         f"Level {level_index + 1}/{total_levels}  |  "
-        f"Difficulty: {difficulty_name.capitalize()}  |  Mode: {multiplayer_mode}{mode_extra}"
+        f"Difficulty: {difficulty_name.capitalize()}  |  "
+        f"Theme: {theme_mode.capitalize()}  |  "
+        f"Mode: {multiplayer_mode}{mode_extra}"
     )
     status_surf = font.render(status_text, True, "white")
     screen.blit(status_surf, (10, 890))
 
-    hints_text = "H: Help | F5: Remap | 1/2/3: Difficulty | M: Cycle mode | G: Change P2 ghost"
+    hints_text = (
+        "H: Help | F5: Remap | F9: AI Debug | "
+        "1/2/3: Difficulty | M: Cycle mode | G: Change P2 ghost"
+    )
     hints_surf = font.render(hints_text, True, "gray")
     screen.blit(hints_surf, (10, 870))
 
@@ -125,6 +131,7 @@ def draw_misc(
             "Resume",
             "Restart",
             "Change Difficulty",
+            "Theme Mode",
             "Multiplayer",
             "Quit",
         ]
