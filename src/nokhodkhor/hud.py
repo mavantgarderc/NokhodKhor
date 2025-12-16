@@ -1,10 +1,13 @@
 import pygame
 
+GHOST_NAMES = ["Blinky", "Inky", "Pinky", "Clyde"]
+
 
 def draw_misc(
     screen: pygame.Surface,
     font: pygame.font.Font,
-    score: int,
+    score_p1: int,
+    score_p2: int,
     high_score: int,
     powerup: bool,
     lives: int,
@@ -19,12 +22,19 @@ def draw_misc(
     show_help: bool,
     bindings_display: list[tuple[str, str]] | None,
     remap_prompt: str | None = None,
+    multiplayer_mode: str = "1P",
+    versus_ghost_index: int = 0,
 ) -> None:
 
-    score_text = font.render(f"Score: {score}", True, "white")
+    p1_text = font.render(f"P1: {score_p1}", True, "white")
+    screen.blit(p1_text, (10, 920))
+
+    if multiplayer_mode in ("Co-op", "Versus"):
+        p2_text = font.render(f"P2: {score_p2}", True, "white")
+        screen.blit(p2_text, (200, 920))
+
     high_text = font.render(f"High: {high_score}", True, "yellow")
-    screen.blit(score_text, (10, 920))
-    screen.blit(high_text, (200, 920))
+    screen.blit(high_text, (390, 920))
 
     if powerup:
         pygame.draw.circle(screen, "blue", (140, 930), 15)
@@ -35,31 +45,31 @@ def draw_misc(
             (650 + i * 40, 915),
         )
 
+    mode_extra = ""
+    if multiplayer_mode == "Versus":
+        ghost_name = GHOST_NAMES[versus_ghost_index]
+        mode_extra = f" | Versus: P2={ghost_name}"
     status_text = (
         f"Level {level_index + 1}/{total_levels}  |  "
-        f"Difficulty: {difficulty_name.capitalize()}"
+        f"Difficulty: {difficulty_name.capitalize()}  |  Mode: {multiplayer_mode}{mode_extra}"
     )
     status_surf = font.render(status_text, True, "white")
     screen.blit(status_surf, (10, 890))
 
-    hints_text = "H: Help/Controls | F5: Remap keys | 1/2/3: Easy/Normal/Hard"
+    hints_text = "H: Help | F5: Remap | 1/2/3: Difficulty | M: Cycle mode | G: Change P2 ghost"
     hints_surf = font.render(hints_text, True, "gray")
     screen.blit(hints_surf, (10, 870))
 
     if game_over:
         pygame.draw.rect(screen, "white", [50, 200, 800, 300], 0, 10)
         pygame.draw.rect(screen, "dark gray", [70, 220, 760, 260], 0, 10)
-        gameover_text = font.render(
-            "Game over! Restart key to play again!", True, "red"
-        )
+        gameover_text = font.render("Game over! Restart key to play again!", True, "red")
         screen.blit(gameover_text, (100, 300))
 
     if game_won:
         pygame.draw.rect(screen, "white", [50, 200, 800, 300], 0, 10)
         pygame.draw.rect(screen, "dark gray", [70, 220, 760, 260], 0, 10)
-        gameover_text = font.render(
-            "Victory! Restart key to play again!", True, "green"
-        )
+        gameover_text = font.render("Victory! Restart key to play again!", True, "green")
         screen.blit(gameover_text, (100, 300))
 
     if remap_prompt is not None:
@@ -77,7 +87,7 @@ def draw_misc(
         pygame.draw.rect(screen, "white", [100, 150, 700, 500], 0, 10)
         pygame.draw.rect(screen, "darkgray", [120, 170, 660, 460], 0, 10)
 
-        title_text = font.render("Controls", True, "yellow")
+        title_text = font.render("Controls (P1 + general)", True, "yellow")
         screen.blit(title_text, (150, 190))
 
         if bindings_display is None:
@@ -89,8 +99,19 @@ def draw_misc(
             text_surf = font.render(line, True, "white")
             screen.blit(text_surf, (150, base_y + idx * 30))
 
+        extra_lines = [
+            "P2 Movement: W/A/S/D",
+            "Modes: 1P, Co-op (2 Pac-Men), Versus (P2 controls a ghost)",
+        ]
+        for j, line in enumerate(extra_lines):
+            text_surf = font.render(line, True, "white")
+            screen.blit(text_surf, (150, base_y + len(bindings_display) * 30 + 20 + j * 30))
+
         hint_text = font.render("Press H to close this screen", True, "gray")
-        screen.blit(hint_text, (150, base_y + len(bindings_display) * 30 + 20))
+        screen.blit(
+            hint_text,
+            (150, base_y + len(bindings_display) * 30 + 20 + len(extra_lines) * 30 + 10),
+        )
         return
 
     if paused and not (game_over or game_won):
@@ -104,6 +125,7 @@ def draw_misc(
             "Resume",
             "Restart",
             "Change Difficulty",
+            "Multiplayer",
             "Quit",
         ]
 

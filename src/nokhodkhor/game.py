@@ -11,13 +11,18 @@ from .config import (
     COLOR_BG,
     DEFAULT_DIFFICULTY,
     DEFAULT_KEY_BINDINGS,
+    DEFAULT_KEY_BINDINGS_P2,
+    DEFAULT_MULTIPLAYER_MODE,
     DIFFICULTIES,
     FONT_NAME,
     FONT_SIZE,
     FPS,
     HEIGHT,
     INKY_START,
+    MULTIPLAYER_MODES,
     PINKY_START,
+    PLAYER2_START_X,
+    PLAYER2_START_Y,
     PLAYER_START_X,
     PLAYER_START_Y,
     STARTUP_DELAY_FRAMES,
@@ -26,12 +31,7 @@ from .config import (
 from .ghosts import Ghost
 from .hud import draw_misc
 from .player import check_collisions, check_position, draw_player, move_player
-from .scores import (
-    get_high_score,
-    load_high_scores,
-    maybe_update_high_score,
-    save_high_scores,
-)
+from .scores import get_high_score, load_high_scores, maybe_update_high_score, save_high_scores
 
 
 def run() -> None:
@@ -43,28 +43,14 @@ def run() -> None:
     player_images = []
     for i in range(1, 5):
         player_images.append(
-            pygame.transform.scale(
-                pygame.image.load(f"assets/player_images/{i}.png"), (40, 40)
-            )
+            pygame.transform.scale(pygame.image.load(f"assets/player_images/{i}.png"), (40, 40))
         )
-    blinky_img = pygame.transform.scale(
-        pygame.image.load("assets/ghost_images/red.png"), (42, 42)
-    )
-    pinky_img = pygame.transform.scale(
-        pygame.image.load("assets/ghost_images/pink.png"), (42, 42)
-    )
-    inky_img = pygame.transform.scale(
-        pygame.image.load("assets/ghost_images/blue.png"), (42, 42)
-    )
-    clyde_img = pygame.transform.scale(
-        pygame.image.load("assets/ghost_images/orange.png"), (42, 42)
-    )
-    spooked_img = pygame.transform.scale(
-        pygame.image.load("assets/ghost_images/powerup.png"), (42, 42)
-    )
-    dead_img = pygame.transform.scale(
-        pygame.image.load("assets/ghost_images/dead.png"), (42, 42)
-    )
+    blinky_img = pygame.transform.scale(pygame.image.load("assets/ghost_images/red.png"), (42, 42))
+    pinky_img = pygame.transform.scale(pygame.image.load("assets/ghost_images/pink.png"), (42, 42))
+    inky_img = pygame.transform.scale(pygame.image.load("assets/ghost_images/blue.png"), (42, 42))
+    clyde_img = pygame.transform.scale(pygame.image.load("assets/ghost_images/orange.png"), (42, 42))
+    spooked_img = pygame.transform.scale(pygame.image.load("assets/ghost_images/powerup.png"), (42, 42))
+    dead_img = pygame.transform.scale(pygame.image.load("assets/ghost_images/dead.png"), (42, 42))
 
     difficulty_name = DEFAULT_DIFFICULTY
     difficulty = DIFFICULTIES[difficulty_name]
@@ -74,12 +60,17 @@ def run() -> None:
     max_lives = difficulty["lives"]
 
     key_bindings = DEFAULT_KEY_BINDINGS.copy()
+    key_bindings_p2 = DEFAULT_KEY_BINDINGS_P2.copy()
 
     high_scores = load_high_scores()
     current_high_score = get_high_score(high_scores, difficulty_name)
     run_recorded = False
 
-    PAUSE_MENU_ITEMS = ["Resume", "Restart", "Change Difficulty", "Quit"]
+    multiplayer_mode = DEFAULT_MULTIPLAYER_MODE
+    multiplayer_menu_index = MULTIPLAYER_MODES.index(multiplayer_mode)
+    versus_ghost_index = 0
+
+    PAUSE_MENU_ITEMS = ["Resume", "Restart", "Change Difficulty", "Multiplayer", "Quit"]
     pause_menu_index = 0
 
     remap_mode = False
@@ -97,6 +88,13 @@ def run() -> None:
     player_y = PLAYER_START_Y
     direction = 0
     direction_command = 0
+    score = 0
+
+    player2_x = PLAYER2_START_X
+    player2_y = PLAYER2_START_Y
+    direction2 = 0
+    direction2_command = 0
+    score2 = 0
 
     blinky_x, blinky_y, blinky_direction = BLINKY_START
     inky_x, inky_y, inky_direction = INKY_START
@@ -108,11 +106,14 @@ def run() -> None:
     clyde_dead = False
     pinky_dead = False
 
+    ghost_player_direction = 0
+    ghost_player_direction_command = 0
+
     counter = 0
     flicker = False
     turns_allowed = [False, False, False, False]
+    turns_allowed2 = [False, False, False, False]
 
-    score = 0
     powerup = False
     power_counter = 0
     eaten_ghost = [False, False, False, False]
@@ -146,6 +147,7 @@ def run() -> None:
 
     def soft_reset() -> None:
         nonlocal player_x, player_y, direction, direction_command
+        nonlocal player2_x, player2_y, direction2, direction2_command
         nonlocal blinky_x, blinky_y, blinky_direction
         nonlocal inky_x, inky_y, inky_direction
         nonlocal pinky_x, pinky_y, pinky_direction
@@ -169,6 +171,10 @@ def run() -> None:
         direction = 0
         direction_command = 0
 
+        player2_x, player2_y = PLAYER2_START_X, PLAYER2_START_Y
+        direction2 = 0
+        direction2_command = 0
+
         blinky_x, blinky_y, blinky_direction = BLINKY_START
         inky_x, inky_y, inky_direction = INKY_START
         pinky_x, pinky_y, pinky_direction = PINKY_START
@@ -180,6 +186,19 @@ def run() -> None:
         pinky_dead = False
         clyde_dead = False
 
+    def respawn_player(player_idx: int) -> None:
+        nonlocal player_x, player_y, direction, direction_command
+        nonlocal player2_x, player2_y, direction2, direction2_command
+
+        if player_idx == 1:
+            player_x, player_y = PLAYER_START_X, PLAYER_START_Y
+            direction = 0
+            direction_command = 0
+        elif player_idx == 2:
+            player2_x, player2_y = PLAYER2_START_X, PLAYER2_START_Y
+            direction2 = 0
+            direction2_command = 0
+
     def load_level(idx: int) -> None:
         nonlocal level, current_level_index
         current_level_index = idx
@@ -187,8 +206,9 @@ def run() -> None:
         soft_reset()
 
     def full_restart() -> None:
-        nonlocal score, lives, level, game_over, game_won, run_recorded
+        nonlocal score, score2, lives, level, game_over, game_won, run_recorded
         score = 0
+        score2 = 0
         lives = max_lives
         run_recorded = False
         load_level(0)
@@ -240,6 +260,27 @@ def run() -> None:
             pairs.append((label, key_name))
         return pairs
 
+    def cycle_multiplayer_mode() -> None:
+        nonlocal multiplayer_mode, multiplayer_menu_index
+        nonlocal versus_ghost_index, ghost_player_direction, ghost_player_direction_command
+        nonlocal player2_x, player2_y, direction2, direction2_command
+
+        idx = MULTIPLAYER_MODES.index(multiplayer_mode)
+        multiplayer_mode = MULTIPLAYER_MODES[(idx + 1) % len(MULTIPLAYER_MODES)]
+        multiplayer_menu_index = MULTIPLAYER_MODES.index(multiplayer_mode)
+
+        if multiplayer_mode == "Co-op":
+            player2_x, player2_y = PLAYER2_START_X, PLAYER2_START_Y
+            direction2 = 0
+            direction2_command = 0
+        elif multiplayer_mode == "Versus":
+            versus_ghost_index = 0
+            ghost_player_direction = 0
+            ghost_player_direction_command = 0
+
+    def ghost_is_player_controlled(ghost_id: int) -> bool:
+        return multiplayer_mode == "Versus" and ghost_id == versus_ghost_index
+
     while running:
         timer.tick(FPS)
 
@@ -259,11 +300,7 @@ def run() -> None:
                 powerup = False
                 eaten_ghost = [False, False, False, False]
 
-            if (
-                startup_counter < STARTUP_DELAY_FRAMES
-                and not game_over
-                and not game_won
-            ):
+            if startup_counter < STARTUP_DELAY_FRAMES and not game_over and not game_won:
                 moving = False
                 startup_counter += 1
             else:
@@ -274,6 +311,8 @@ def run() -> None:
 
         center_x = player_x + 23
         center_y = player_y + 24
+        center2_x = player2_x + 23
+        center2_y = player2_y + 24
 
         if powerup:
             ghost_speeds = [difficulty["frightened_speed"]] * 4
@@ -310,6 +349,15 @@ def run() -> None:
 
         player_circle = pygame.draw.circle(screen, "black", (center_x, center_y), 20, 2)
         draw_player(screen, player_images, counter, player_x, player_y, direction)
+        label1 = font.render("1", True, "white")
+        screen.blit(label1, (center_x - 5, center_y - 10))
+
+        player2_circle = None
+        if multiplayer_mode == "Co-op":
+            player2_circle = pygame.draw.circle(screen, "black", (center2_x, center2_y), 20, 2)
+            draw_player(screen, player_images, counter, player2_x, player2_y, direction2)
+            label2 = font.render("2", True, "white")
+            screen.blit(label2, (center2_x - 5, center2_y - 10))
 
         blinky = Ghost(
             blinky_x,
@@ -361,6 +409,7 @@ def run() -> None:
             screen,
             font,
             score,
+            score2,
             current_high_score,
             powerup,
             lives,
@@ -375,6 +424,8 @@ def run() -> None:
             show_help,
             bindings_display,
             remap_prompt,
+            multiplayer_mode,
+            versus_ghost_index,
         )
 
         def get_targets(
@@ -387,118 +438,311 @@ def run() -> None:
             clyd_x,
             clyd_y,
         ):
-            nonlocal powerup, eaten_ghost, player_x, player_y
-            if player_x < 450:
-                runaway_x = 900
+            nonlocal level, current_level_index, multiplayer_mode
+            nonlocal player_x, player_y, player2_x, player2_y
+            nonlocal direction, direction2, powerup, eaten_ghost
+            nonlocal game_over, game_won, paused, remap_mode, show_help
+
+            if (
+                not hasattr(get_targets, "_initialized")
+                or get_targets._last_level_index != current_level_index
+            ):
+                get_targets._schedule = [
+                    ("scatter", 7 * FPS),
+                    ("chase", 20 * FPS),
+                    ("scatter", 7 * FPS),
+                    ("chase", 20 * FPS),
+                    ("scatter", 5 * FPS),
+                    ("chase", 20 * FPS),
+                    ("scatter", 5 * FPS),
+                ]
+                get_targets._mode_index = 0
+                get_targets._mode, get_targets._timer = get_targets._schedule[0]
+                get_targets._initialized = True
+                get_targets._last_level_index = current_level_index
+
+            if (
+                not powerup
+                and not game_over
+                and not game_won
+                and not paused
+                and not remap_mode
+                and not show_help
+            ):
+                if get_targets._mode_index < len(get_targets._schedule):
+                    get_targets._timer -= 1
+                    if get_targets._timer <= 0:
+                        get_targets._mode_index += 1
+                        if get_targets._mode_index < len(get_targets._schedule):
+                            (
+                                get_targets._mode,
+                                get_targets._timer,
+                            ) = get_targets._schedule[get_targets._mode_index]
+                        else:
+                            get_targets._mode = "chase"
+
+            ghost_mode = get_targets._mode
+
+            num1 = (HEIGHT - 50) // 32
+            num2 = WIDTH // 30
+
+            def to_tile(px: float, py: float) -> tuple[int, int]:
+                tx = int((px + 22) // num2)
+                ty = int((py + 22) // num1)
+                return tx, ty
+
+            def tile_to_pixel(tx: int, ty: int) -> tuple[float, float]:
+                return (
+                    tx * num2 + 0.5 * num2,
+                    ty * num1 + 0.5 * num1,
+                )
+
+            rows = len(level)
+            cols = len(level[0])
+
+            def clamp_tile(tx: int, ty: int) -> tuple[int, int]:
+                return max(0, min(cols - 1, tx)), max(0, min(rows - 1, ty))
+
+            def dir_vector(dir_code: int) -> tuple[int, int]:
+                dx, dy = 0, 0
+                if dir_code == 0:
+                    dx = 1
+                elif dir_code == 1:
+                    dx = -1
+                elif dir_code == 2:
+                    dy = -1
+                elif dir_code == 3:
+                    dy = 1
+                return dx, dy
+
+            p1_cx = player_x + 23
+            p1_cy = player_y + 24
+            p1_tx = int(p1_cx // num2)
+            p1_ty = int(p1_cy // num1)
+
+            if multiplayer_mode == "Co-op":
+                p2_cx = player2_x + 23
+                p2_cy = player2_y + 24
+                p2_tx = int(p2_cx // num2)
+                p2_ty = int(p2_cy // num1)
             else:
-                runaway_x = 0
-            if player_y < 450:
-                runaway_y = 900
+                p2_tx = p2_ty = 0
+
+            blinky_tx, blinky_ty = to_tile(blink_x, blink_y)
+            inky_tx, inky_ty = to_tile(ink_x, ink_y)
+            pinky_tx, pinky_ty = to_tile(pink_x, pink_y)
+            clyde_tx, clyde_ty = to_tile(clyd_x, clyd_y)
+
+            blinky_scatter = (cols - 3, 1)
+            pinky_scatter = (2, 1)
+            inky_scatter = (cols - 3, rows - 3)
+            clyde_scatter = (2, rows - 3)
+
+            def choose_player_for_ghost(ghost_tx: int, ghost_ty: int) -> tuple[int, int, int]:
+                best_tx, best_ty, best_dir = p1_tx, p1_ty, direction
+                if multiplayer_mode == "Co-op":
+                    d1 = (ghost_tx - p1_tx) ** 2 + (ghost_ty - p1_ty) ** 2
+                    d2 = (ghost_tx - p2_tx) ** 2 + (ghost_ty - p2_ty) ** 2
+                    if d2 < d1:
+                        best_tx, best_ty, best_dir = p2_tx, p2_ty, direction2
+                return best_tx, best_ty, best_dir
+
+            blinky_p_tx, blinky_p_ty, _ = choose_player_for_ghost(blinky_tx, blinky_ty)
+            blinky_chase = (blinky_p_tx, blinky_p_ty)
+
+            pinky_p_tx, pinky_p_ty, pinky_p_dir = choose_player_for_ghost(pinky_tx, pinky_ty)
+            pink_dx, pink_dy = dir_vector(pinky_p_dir)
+            pinky_target_tx = pinky_p_tx + 4 * pink_dx
+            pinky_target_ty = pinky_p_ty + 4 * pink_dy
+            pinky_chase = clamp_tile(pinky_target_tx, pinky_target_ty)
+
+            inky_p_tx, inky_p_ty, inky_p_dir = choose_player_for_ghost(inky_tx, inky_ty)
+            inky_dx, inky_dy = dir_vector(inky_p_dir)
+            ahead_tx = inky_p_tx + 2 * inky_dx
+            ahead_ty = inky_p_ty + 2 * inky_dy
+            ahead_tx, ahead_ty = clamp_tile(ahead_tx, ahead_ty)
+            vx = ahead_tx - blinky_tx
+            vy = ahead_ty - blinky_ty
+            inky_target_tx = ahead_tx + vx
+            inky_target_ty = ahead_ty + vy
+            inky_chase = clamp_tile(inky_target_tx, inky_target_ty)
+
+            clyde_p_tx, clyde_p_ty, _ = choose_player_for_ghost(clyde_tx, clyde_ty)
+            dist_sq_clyde = (clyde_tx - clyde_p_tx) ** 2 + (clyde_ty - clyde_p_ty) ** 2
+            if dist_sq_clyde >= 8**2:
+                clyde_chase = (clyde_p_tx, clyde_p_ty)
             else:
-                runaway_y = 0
+                clyde_chase = clyde_scatter
+
+            def runaway_for(player_tx: int, player_ty: int) -> tuple[float, float]:
+                runaway_tx = 0 if player_tx >= cols // 2 else cols - 1
+                runaway_ty = 0 if player_ty >= rows // 2 else rows - 1
+                return tile_to_pixel(runaway_tx, runaway_ty)
+
+            blinky_run_px, blinky_run_py = runaway_for(blinky_p_tx, blinky_p_ty)
+            inky_run_px, inky_run_py = runaway_for(inky_p_tx, inky_p_ty)
+            pinky_run_px, pinky_run_py = runaway_for(pinky_p_tx, pinky_p_ty)
+            clyde_run_px, clyde_run_py = runaway_for(clyde_p_tx, clyde_p_ty)
+
+            blinky_scatter_px = tile_to_pixel(*blinky_scatter)
+            pinky_scatter_px = tile_to_pixel(*pinky_scatter)
+            inky_scatter_px = tile_to_pixel(*inky_scatter)
+            clyde_scatter_px = tile_to_pixel(*clyde_scatter)
+
+            blinky_chase_px = tile_to_pixel(*blinky_chase)
+            pinky_chase_px = tile_to_pixel(*pinky_chase)
+            inky_chase_px = tile_to_pixel(*inky_chase)
+            clyde_chase_px = tile_to_pixel(*clyde_chase)
+
             return_target = (380, 400)
-            if powerup:
-                if not blinky.dead and not eaten_ghost[0]:
-                    blink_target = (runaway_x, runaway_y)
-                elif not blinky.dead and eaten_ghost[0]:
-                    if 340 < blink_x < 560 and 340 < blink_y < 500:
-                        blink_target = (400, 100)
-                    else:
-                        blink_target = (player_x, player_y)
+
+            def choose_target(
+                ghost_obj,
+                idx: int,
+                scatter_px: tuple[float, float],
+                chase_px: tuple[float, float],
+                runaway_px: float,
+                runaway_py: float,
+            ) -> tuple[float, float]:
+                if ghost_obj.dead:
+                    return return_target
+
+                if powerup and not eaten_ghost[idx]:
+                    return runaway_px, runaway_py
+
+                if ghost_mode == "scatter":
+                    return scatter_px
                 else:
-                    blink_target = return_target
-                if not inky.dead and not eaten_ghost[1]:
-                    ink_target = (runaway_x, player_y)
-                elif not inky.dead and eaten_ghost[1]:
-                    if 340 < ink_x < 560 and 340 < ink_y < 500:
-                        ink_target = (400, 100)
-                    else:
-                        ink_target = (player_x, player_y)
-                else:
-                    ink_target = return_target
-                if not pinky.dead and not eaten_ghost[2]:
-                    pink_target = (player_x, runaway_y)
-                elif not pinky.dead and eaten_ghost[2]:
-                    if 340 < pink_x < 560 and 340 < pink_y < 500:
-                        pink_target = (400, 100)
-                    else:
-                        pink_target = (player_x, player_y)
-                else:
-                    pink_target = return_target
-                if not clyde.dead and not eaten_ghost[3]:
-                    clyd_target = (450, 450)
-                elif not clyde.dead and eaten_ghost[3]:
-                    if 340 < clyd_x < 560 and 340 < clyd_y < 500:
-                        clyd_target = (400, 100)
-                    else:
-                        clyd_target = (player_x, player_y)
-                else:
-                    clyd_target = return_target
-            else:
-                if not blinky.dead:
-                    if 340 < blink_x < 560 and 340 < blink_y < 500:
-                        blink_target = (400, 100)
-                    else:
-                        blink_target = (player_x, player_y)
-                else:
-                    blink_target = return_target
-                if not inky.dead:
-                    if 340 < ink_x < 560 and 340 < ink_y < 500:
-                        ink_target = (400, 100)
-                    else:
-                        ink_target = (player_x, player_y)
-                else:
-                    ink_target = return_target
-                if not pinky.dead:
-                    if 340 < pink_x < 560 and 340 < pink_y < 500:
-                        pink_target = (400, 100)
-                    else:
-                        pink_target = (player_x, player_y)
-                else:
-                    pink_target = return_target
-                if not clyde.dead:
-                    if 340 < clyd_x < 560 and 340 < clyd_y < 500:
-                        clyd_target = (400, 100)
-                    else:
-                        clyd_target = (player_x, player_y)
-                else:
-                    clyd_target = return_target
+                    return chase_px
+
+            blink_target = choose_target(
+                blinky,
+                0,
+                blinky_scatter_px,
+                blinky_chase_px,
+                blinky_run_px,
+                blinky_run_py,
+            )
+            ink_target = choose_target(
+                inky,
+                1,
+                inky_scatter_px,
+                inky_chase_px,
+                inky_run_px,
+                inky_run_py,
+            )
+            pink_target = choose_target(
+                pinky,
+                2,
+                pinky_scatter_px,
+                pinky_chase_px,
+                pinky_run_px,
+                pinky_run_py,
+            )
+            clyd_target = choose_target(
+                clyde,
+                3,
+                clyde_scatter_px,
+                clyde_chase_px,
+                clyde_run_px,
+                clyde_run_py,
+            )
+
             return [blink_target, ink_target, pink_target, clyd_target]
 
-        targets = get_targets(
-            blinky_x, blinky_y, inky_x, inky_y, pinky_x, pinky_y, clyde_x, clyde_y
-        )
+        targets = get_targets(blinky_x, blinky_y, inky_x, inky_y, pinky_x, pinky_y, clyde_x, clyde_y)
 
         can_update_positions = (
-            moving
-            and not paused
-            and not remap_mode
-            and not show_help
-            and not game_over
-            and not game_won
+            moving and not paused and not remap_mode and not show_help and not game_over and not game_won
         )
 
         if can_update_positions:
             turns_allowed = check_position(center_x, center_y, direction, level)
-            player_x, player_y = move_player(
-                player_x, player_y, direction, turns_allowed, player_speed
-            )
+            player_x, player_y = move_player(player_x, player_y, direction, turns_allowed, player_speed)
 
-            if not blinky_dead and not blinky.in_box:
-                blinky_x, blinky_y, blinky_direction = blinky.move_blinky()
-            else:
-                blinky_x, blinky_y, blinky_direction = blinky.move_clyde()
-            if not pinky_dead and not pinky.in_box:
-                pinky_x, pinky_y, pinky_direction = pinky.move_pinky()
-            else:
-                pinky_x, pinky_y, pinky_direction = pinky.move_clyde()
-            if not inky_dead and not inky.in_box:
-                inky_x, inky_y, inky_direction = inky.move_inky()
-            else:
-                inky_x, inky_y, inky_direction = inky.move_clyde()
-            clyde_x, clyde_y, clyde_direction = clyde.move_clyde()
+            if multiplayer_mode == "Co-op":
+                turns_allowed2 = check_position(center2_x, center2_y, direction2, level)
+                player2_x, player2_y = move_player(
+                    player2_x,
+                    player2_y,
+                    direction2,
+                    turns_allowed2,
+                    player_speed,
+                )
+
+            def control_ghost(
+                ghost_obj: Ghost,
+                gx: float,
+                gy: float,
+                gdir: int,
+                speed: float,
+                ghost_id: int,
+            ):
+                nonlocal ghost_player_direction, ghost_player_direction_command
+
+                if ghost_is_player_controlled(ghost_id) and not ghost_obj.dead:
+                    g_center_x = gx + 22
+                    g_center_y = gy + 22
+                    g_turns = check_position(g_center_x, g_center_y, ghost_player_direction, level)
+                    if ghost_player_direction_command == 0 and g_turns[0]:
+                        ghost_player_direction = 0
+                    if ghost_player_direction_command == 1 and g_turns[1]:
+                        ghost_player_direction = 1
+                    if ghost_player_direction_command == 2 and g_turns[2]:
+                        ghost_player_direction = 2
+                    if ghost_player_direction_command == 3 and g_turns[3]:
+                        ghost_player_direction = 3
+                    nx, ny = move_player(
+                        gx,
+                        gy,
+                        ghost_player_direction,
+                        g_turns,
+                        speed,
+                    )
+                    if nx < -30:
+                        nx = WIDTH
+                    elif nx > WIDTH:
+                        nx -= 30
+                    return nx, ny, ghost_player_direction
+                else:
+                    return gx, gy, gdir
+
+            blinky_x, blinky_y, blinky_direction = control_ghost(
+                blinky, blinky_x, blinky_y, blinky_direction, ghost_speeds[0], 0
+            )
+            if not ghost_is_player_controlled(0):
+                if not blinky_dead and not blinky.in_box:
+                    blinky_x, blinky_y, blinky_direction = blinky.move_blinky()
+                else:
+                    blinky_x, blinky_y, blinky_direction = blinky.move_clyde()
+
+            inky_x, inky_y, inky_direction = control_ghost(
+                inky, inky_x, inky_y, inky_direction, ghost_speeds[1], 1
+            )
+            if not ghost_is_player_controlled(1):
+                if not inky_dead and not inky.in_box:
+                    inky_x, inky_y, inky_direction = inky.move_inky()
+                else:
+                    inky_x, inky_y, inky_direction = inky.move_clyde()
+
+            pinky_x, pinky_y, pinky_direction = control_ghost(
+                pinky, pinky_x, pinky_y, pinky_direction, ghost_speeds[2], 2
+            )
+            if not ghost_is_player_controlled(2):
+                if not pinky_dead and not pinky.in_box:
+                    pinky_x, pinky_y, pinky_direction = pinky.move_pinky()
+                else:
+                    pinky_x, pinky_y, pinky_direction = pinky.move_clyde()
+
+            clyde_x, clyde_y, clyde_direction = control_ghost(
+                clyde, clyde_x, clyde_y, clyde_direction, ghost_speeds[3], 3
+            )
+            if not ghost_is_player_controlled(3):
+                clyde_x, clyde_y, clyde_direction = clyde.move_clyde()
         else:
             turns_allowed = check_position(center_x, center_y, direction, level)
+            if multiplayer_mode == "Co-op":
+                turns_allowed2 = check_position(center2_x, center2_y, direction2, level)
 
         score, powerup, power_counter, eaten_ghost = check_collisions(
             score,
@@ -510,51 +754,88 @@ def run() -> None:
             center_y,
             level,
         )
+        if multiplayer_mode == "Co-op":
+            score2, powerup, power_counter, eaten_ghost = check_collisions(
+                score2,
+                powerup,
+                power_counter,
+                eaten_ghost,
+                player2_x,
+                center2_x,
+                center2_y,
+                level,
+            )
 
-        if not powerup and not (
-            paused or remap_mode or show_help or game_over or game_won
-        ):
+        def handle_player_hit(player_idx: int, circle: pygame.Rect | None):
+            nonlocal lives, game_over, moving, startup_counter
+            if circle is None:
+                return
             if (
-                (player_circle.colliderect(blinky.rect) and not blinky.dead)
-                or (player_circle.colliderect(inky.rect) and not inky.dead)
-                or (player_circle.colliderect(pinky.rect) and not pinky.dead)
-                or (player_circle.colliderect(clyde.rect) and not clyde.dead)
+                (circle.colliderect(blinky.rect) and not blinky.dead)
+                or (circle.colliderect(inky.rect) and not inky.dead)
+                or (circle.colliderect(pinky.rect) and not pinky.dead)
+                or (circle.colliderect(clyde.rect) and not clyde.dead)
             ):
                 if lives > 0:
                     lives -= 1
-                    soft_reset()
+                    if multiplayer_mode == "Co-op":
+                        respawn_player(player_idx)
+                    else:
+                        soft_reset()
                 else:
                     game_over = True
                     moving = False
                     startup_counter = 0
 
-        def handle_power_collision_already_eaten(ghost_obj, idx: int):
+        if not powerup and not (paused or remap_mode or show_help or game_over or game_won):
+            handle_player_hit(1, player_circle)
+            if multiplayer_mode == "Co-op":
+                handle_player_hit(2, player2_circle)
+
+        def handle_power_collision_already_eaten(
+            player_idx: int, circle: pygame.Rect | None, ghost_obj, idx: int
+        ):
             nonlocal lives, game_over, moving, startup_counter
+            if circle is None:
+                return
             if (
                 powerup
-                and player_circle.colliderect(ghost_obj.rect)
+                and circle.colliderect(ghost_obj.rect)
                 and eaten_ghost[idx]
                 and not ghost_obj.dead
                 and not (paused or remap_mode or show_help or game_over or game_won)
             ):
                 if lives > 0:
                     lives -= 1
-                    soft_reset()
+                    if multiplayer_mode == "Co-op":
+                        respawn_player(player_idx)
+                    else:
+                        soft_reset()
                 else:
                     game_over = True
                     moving = False
                     startup_counter = 0
 
-        handle_power_collision_already_eaten(blinky, 0)
-        handle_power_collision_already_eaten(inky, 1)
-        handle_power_collision_already_eaten(pinky, 2)
-        handle_power_collision_already_eaten(clyde, 3)
+        handle_power_collision_already_eaten(1, player_circle, blinky, 0)
+        handle_power_collision_already_eaten(1, player_circle, inky, 1)
+        handle_power_collision_already_eaten(1, player_circle, pinky, 2)
+        handle_power_collision_already_eaten(1, player_circle, clyde, 3)
 
-        def eat_ghost_if_possible(ghost_obj, idx: int, dead_flag_name: str):
-            nonlocal score, blinky_dead, inky_dead, pinky_dead, clyde_dead
+        if multiplayer_mode == "Co-op":
+            handle_power_collision_already_eaten(2, player2_circle, blinky, 0)
+            handle_power_collision_already_eaten(2, player2_circle, inky, 1)
+            handle_power_collision_already_eaten(2, player2_circle, pinky, 2)
+            handle_power_collision_already_eaten(2, player2_circle, clyde, 3)
+
+        def eat_ghost_if_possible(
+            player_idx: int, circle: pygame.Rect | None, ghost_obj, idx: int, dead_flag_name: str
+        ):
+            nonlocal score, score2, blinky_dead, inky_dead, pinky_dead, clyde_dead
+            if circle is None:
+                return
             if (
                 powerup
-                and player_circle.colliderect(ghost_obj.rect)
+                and circle.colliderect(ghost_obj.rect)
                 and not ghost_obj.dead
                 and not eaten_ghost[idx]
                 and not (paused or remap_mode or show_help or game_over or game_won)
@@ -568,12 +849,22 @@ def run() -> None:
                 elif dead_flag_name == "clyde":
                     clyde_dead = True
                 eaten_ghost[idx] = True
-                score += (2 ** eaten_ghost.count(True)) * 100
+                points = (2 ** eaten_ghost.count(True)) * 100
+                if player_idx == 1:
+                    score += points
+                else:
+                    score2 += points
 
-        eat_ghost_if_possible(blinky, 0, "blinky")
-        eat_ghost_if_possible(inky, 1, "inky")
-        eat_ghost_if_possible(pinky, 2, "pinky")
-        eat_ghost_if_possible(clyde, 3, "clyde")
+        eat_ghost_if_possible(1, player_circle, blinky, 0, "blinky")
+        eat_ghost_if_possible(1, player_circle, inky, 1, "inky")
+        eat_ghost_if_possible(1, player_circle, pinky, 2, "pinky")
+        eat_ghost_if_possible(1, player_circle, clyde, 3, "clyde")
+
+        if multiplayer_mode == "Co-op":
+            eat_ghost_if_possible(2, player2_circle, blinky, 0, "blinky")
+            eat_ghost_if_possible(2, player2_circle, inky, 1, "inky")
+            eat_ghost_if_possible(2, player2_circle, pinky, 2, "pinky")
+            eat_ghost_if_possible(2, player2_circle, clyde, 3, "clyde")
 
         finalize_run_if_needed()
 
@@ -595,6 +886,16 @@ def run() -> None:
                     show_help = not show_help
                     continue
 
+                if event.key == pygame.K_m and not (game_over or game_won):
+                    cycle_multiplayer_mode()
+                    continue
+
+                if event.key == pygame.K_g and multiplayer_mode == "Versus" and not (game_over or game_won):
+                    versus_ghost_index = (versus_ghost_index + 1) % 4
+                    ghost_player_direction = 0
+                    ghost_player_direction_command = 0
+                    continue
+
                 if event.key == pygame.K_1:
                     apply_difficulty("easy")
                 elif event.key == pygame.K_2:
@@ -606,11 +907,7 @@ def run() -> None:
                     full_restart()
                     continue
 
-                if (
-                    event.key == key_bindings["pause"]
-                    and not game_over
-                    and not game_won
-                ):
+                if event.key == key_bindings["pause"] and not game_over and not game_won:
                     paused = not paused
                     if paused:
                         pause_menu_index = 0
@@ -618,13 +915,9 @@ def run() -> None:
 
                 if paused and not game_over and not game_won:
                     if event.key in (pygame.K_UP, pygame.K_w):
-                        pause_menu_index = (pause_menu_index - 1) % len(
-                            PAUSE_MENU_ITEMS
-                        )
+                        pause_menu_index = (pause_menu_index - 1) % len(PAUSE_MENU_ITEMS)
                     elif event.key in (pygame.K_DOWN, pygame.K_s):
-                        pause_menu_index = (pause_menu_index + 1) % len(
-                            PAUSE_MENU_ITEMS
-                        )
+                        pause_menu_index = (pause_menu_index + 1) % len(PAUSE_MENU_ITEMS)
                     elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                         selected = PAUSE_MENU_ITEMS[pause_menu_index]
                         if selected == "Resume":
@@ -636,12 +929,15 @@ def run() -> None:
                             idx = names.index(difficulty_name)
                             new_name = names[(idx + 1) % len(names)]
                             apply_difficulty(new_name)
+                        elif selected == "Multiplayer":
+                            cycle_multiplayer_mode()
                         elif selected == "Quit":
                             running = False
 
                     continue
 
                 if not (paused or remap_mode or show_help or game_over or game_won):
+
                     if event.key == key_bindings["move_right"]:
                         direction_command = 0
                     if event.key == key_bindings["move_left"]:
@@ -650,6 +946,27 @@ def run() -> None:
                         direction_command = 2
                     if event.key == key_bindings["move_down"]:
                         direction_command = 3
+
+                    if event.key == key_bindings_p2["move_right"]:
+                        if multiplayer_mode == "Co-op":
+                            direction2_command = 0
+                        elif multiplayer_mode == "Versus":
+                            ghost_player_direction_command = 0
+                    if event.key == key_bindings_p2["move_left"]:
+                        if multiplayer_mode == "Co-op":
+                            direction2_command = 1
+                        elif multiplayer_mode == "Versus":
+                            ghost_player_direction_command = 1
+                    if event.key == key_bindings_p2["move_up"]:
+                        if multiplayer_mode == "Co-op":
+                            direction2_command = 2
+                        elif multiplayer_mode == "Versus":
+                            ghost_player_direction_command = 2
+                    if event.key == key_bindings_p2["move_down"]:
+                        if multiplayer_mode == "Co-op":
+                            direction2_command = 3
+                        elif multiplayer_mode == "Versus":
+                            ghost_player_direction_command = 3
 
             if event.type == pygame.KEYUP and not remap_mode:
                 if event.key == key_bindings["move_right"] and direction_command == 0:
@@ -670,10 +987,26 @@ def run() -> None:
         if direction_command == 3 and turns_allowed[3]:
             direction = 3
 
+        if multiplayer_mode == "Co-op":
+            if direction2_command == 0 and turns_allowed2[0]:
+                direction2 = 0
+            if direction2_command == 1 and turns_allowed2[1]:
+                direction2 = 1
+            if direction2_command == 2 and turns_allowed2[2]:
+                direction2 = 2
+            if direction2_command == 3 and turns_allowed2[3]:
+                direction2 = 3
+
         if player_x > WIDTH:
             player_x = -47
         elif player_x < -50:
             player_x = WIDTH - 3
+
+        if multiplayer_mode == "Co-op":
+            if player2_x > WIDTH:
+                player2_x = -47
+            elif player2_x < -50:
+                player2_x = WIDTH - 3
 
         if blinky.in_box and blinky_dead:
             blinky_dead = False
