@@ -146,7 +146,6 @@ def run() -> None:
         current_high_score = get_high_score(high_scores, difficulty_name)
 
     def soft_reset() -> None:
-        """Full reset of positions/state (used in 1P / Versus after death)."""
         nonlocal player_x, player_y, direction, direction_command
         nonlocal player2_x, player2_y, direction2, direction2_command
         nonlocal blinky_x, blinky_y, blinky_direction
@@ -272,12 +271,10 @@ def run() -> None:
         multiplayer_menu_index = MULTIPLAYER_MODES.index(multiplayer_mode)
 
         if multiplayer_mode == "Co-op":
-
             player2_x, player2_y = PLAYER2_START_X, PLAYER2_START_Y
             direction2 = 0
             direction2_command = 0
         elif multiplayer_mode == "Versus":
-
             versus_ghost_index = 0
             ghost_player_direction = 0
             ghost_player_direction_command = 0
@@ -445,30 +442,30 @@ def run() -> None:
             nonlocal powerup, eaten_ghost, player_x, player_y, player2_x, player2_y
             nonlocal multiplayer_mode
 
-            def choose_player_for_ghost(gx: float, gy: float) -> tuple[float, float]:
+            def nearest_player(gx: float, gy: float) -> tuple[float, float]:
+                gx_c = gx + 22
+                gy_c = gy + 22
+                p1_cx = player_x + 23
+                p1_cy = player_y + 24
+                best_x, best_y = player_x, player_y
+                best_d = (gx_c - p1_cx) ** 2 + (gy_c - p1_cy) ** 2
 
-                target_x = player_x
-                target_y = player_y
                 if multiplayer_mode == "Co-op":
-                    gx_c = gx + 22
-                    gy_c = gy + 22
-                    p1_cx = player_x + 23
-                    p1_cy = player_y + 24
                     p2_cx = player2_x + 23
                     p2_cy = player2_y + 24
-                    d1 = (gx_c - p1_cx) ** 2 + (gy_c - p1_cy) ** 2
                     d2 = (gx_c - p2_cx) ** 2 + (gy_c - p2_cy) ** 2
-                    if d2 < d1:
-                        target_x = player2_x
-                        target_y = player2_y
-                return target_x, target_y
+                    if d2 < best_d:
+                        best_d = d2
+                        best_x, best_y = player2_x, player2_y
 
-            def runaway_for(tx: float, ty: float) -> tuple[int, int]:
-                if tx < 450:
+                return best_x, best_y
+
+            def runaway_for(px: float, py: float) -> tuple[int, int]:
+                if px < 450:
                     rx = 900
                 else:
                     rx = 0
-                if ty < 450:
+                if py < 450:
                     ry = 900
                 else:
                     ry = 0
@@ -476,10 +473,10 @@ def run() -> None:
 
             return_target = (380, 400)
 
-            blink_px, blink_py = choose_player_for_ghost(blink_x, blink_y)
-            ink_px, ink_py = choose_player_for_ghost(ink_x, ink_y)
-            pink_px, pink_py = choose_player_for_ghost(pink_x, pink_y)
-            clyd_px, clyd_py = choose_player_for_ghost(clyd_x, clyd_y)
+            blink_px, blink_py = nearest_player(blink_x, blink_y)
+            ink_px, ink_py = nearest_player(ink_x, ink_y)
+            pink_px, pink_py = nearest_player(pink_x, pink_y)
+            clyd_px, clyd_py = nearest_player(clyd_x, clyd_y)
 
             blink_runx, blink_runy = runaway_for(blink_px, blink_py)
             ink_runx, ink_runy = runaway_for(ink_px, ink_py)
@@ -487,7 +484,6 @@ def run() -> None:
             clyd_runx, clyd_runy = runaway_for(clyd_px, clyd_py)
 
             if powerup:
-
                 if not blinky.dead and not eaten_ghost[0]:
                     blink_target = (blink_runx, blink_runy)
                 elif not blinky.dead and eaten_ghost[0]:
@@ -519,7 +515,6 @@ def run() -> None:
                     pink_target = return_target
 
                 if not clyde.dead and not eaten_ghost[3]:
-
                     clyd_target = (clyd_runx, clyd_runy)
                 elif not clyde.dead and eaten_ghost[3]:
                     if 340 < clyd_x < 560 and 340 < clyd_y < 500:
@@ -529,7 +524,6 @@ def run() -> None:
                 else:
                     clyd_target = return_target
             else:
-
                 if not blinky.dead:
                     if 340 < blink_x < 560 and 340 < blink_y < 500:
                         blink_target = (400, 100)
@@ -571,7 +565,6 @@ def run() -> None:
         )
 
         if can_update_positions:
-
             turns_allowed = check_position(center_x, center_y, direction, level)
             player_x, player_y = move_player(player_x, player_y, direction, turns_allowed, player_speed)
 
@@ -585,113 +578,74 @@ def run() -> None:
                     player_speed,
                 )
 
-            if ghost_is_player_controlled(0) and not blinky_dead:
-                g_center_x = blinky_x + 22
-                g_center_y = blinky_y + 22
-                g_turns = check_position(g_center_x, g_center_y, ghost_player_direction, level)
-                if ghost_player_direction_command == 0 and g_turns[0]:
-                    ghost_player_direction = 0
-                if ghost_player_direction_command == 1 and g_turns[1]:
-                    ghost_player_direction = 1
-                if ghost_player_direction_command == 2 and g_turns[2]:
-                    ghost_player_direction = 2
-                if ghost_player_direction_command == 3 and g_turns[3]:
-                    ghost_player_direction = 3
-                blinky_x, blinky_y = move_player(
-                    blinky_x, blinky_y, ghost_player_direction, g_turns, ghost_speeds[0]
-                )
-                if blinky_x < -30:
-                    blinky_x = WIDTH
-                elif blinky_x > WIDTH:
-                    blinky_x -= 30
-                blinky_direction = ghost_player_direction
-            else:
+            def control_ghost(
+                ghost_obj: Ghost,
+                gx: float,
+                gy: float,
+                gdir: int,
+                speed: float,
+                ghost_id: int,
+            ):
+                nonlocal ghost_player_direction, ghost_player_direction_command
+
+                if ghost_is_player_controlled(ghost_id) and not ghost_obj.dead:
+                    g_center_x = gx + 22
+                    g_center_y = gy + 22
+                    g_turns = check_position(g_center_x, g_center_y, ghost_player_direction, level)
+                    if ghost_player_direction_command == 0 and g_turns[0]:
+                        ghost_player_direction = 0
+                    if ghost_player_direction_command == 1 and g_turns[1]:
+                        ghost_player_direction = 1
+                    if ghost_player_direction_command == 2 and g_turns[2]:
+                        ghost_player_direction = 2
+                    if ghost_player_direction_command == 3 and g_turns[3]:
+                        ghost_player_direction = 3
+                    nx, ny = move_player(
+                        gx,
+                        gy,
+                        ghost_player_direction,
+                        g_turns,
+                        speed,
+                    )
+                    if nx < -30:
+                        nx = WIDTH
+                    elif nx > WIDTH:
+                        nx -= 30
+                    return nx, ny, ghost_player_direction
+                else:
+                    return gx, gy, gdir
+
+            blinky_x, blinky_y, blinky_direction = control_ghost(
+                blinky, blinky_x, blinky_y, blinky_direction, ghost_speeds[0], 0
+            )
+            if not ghost_is_player_controlled(0):
                 if not blinky_dead and not blinky.in_box:
                     blinky_x, blinky_y, blinky_direction = blinky.move_blinky()
                 else:
                     blinky_x, blinky_y, blinky_direction = blinky.move_clyde()
 
-            if ghost_is_player_controlled(1) and not inky_dead:
-                g_center_x = inky_x + 22
-                g_center_y = inky_y + 22
-                g_turns = check_position(g_center_x, g_center_y, ghost_player_direction, level)
-                if ghost_player_direction_command == 0 and g_turns[0]:
-                    ghost_player_direction = 0
-                if ghost_player_direction_command == 1 and g_turns[1]:
-                    ghost_player_direction = 1
-                if ghost_player_direction_command == 2 and g_turns[2]:
-                    ghost_player_direction = 2
-                if ghost_player_direction_command == 3 and g_turns[3]:
-                    ghost_player_direction = 3
-                inky_x, inky_y = move_player(
-                    inky_x, inky_y, ghost_player_direction, g_turns, ghost_speeds[1]
-                )
-                if inky_x < -30:
-                    inky_x = WIDTH
-                elif inky_x > WIDTH:
-                    inky_x -= 30
-                inky_direction = ghost_player_direction
-            else:
+            inky_x, inky_y, inky_direction = control_ghost(
+                inky, inky_x, inky_y, inky_direction, ghost_speeds[1], 1
+            )
+            if not ghost_is_player_controlled(1):
                 if not inky_dead and not inky.in_box:
                     inky_x, inky_y, inky_direction = inky.move_inky()
                 else:
                     inky_x, inky_y, inky_direction = inky.move_clyde()
 
-            if ghost_is_player_controlled(2) and not pinky_dead:
-                g_center_x = pinky_x + 22
-                g_center_y = pinky_y + 22
-                g_turns = check_position(g_center_x, g_center_y, ghost_player_direction, level)
-                if ghost_player_direction_command == 0 and g_turns[0]:
-                    ghost_player_direction = 0
-                if ghost_player_direction_command == 1 and g_turns[1]:
-                    ghost_player_direction = 1
-                if ghost_player_direction_command == 2 and g_turns[2]:
-                    ghost_player_direction = 2
-                if ghost_player_direction_command == 3 and g_turns[3]:
-                    ghost_player_direction = 3
-                pinky_x, pinky_y = move_player(
-                    pinky_x,
-                    pinky_y,
-                    ghost_player_direction,
-                    g_turns,
-                    ghost_speeds[2],
-                )
-                if pinky_x < -30:
-                    pinky_x = WIDTH
-                elif pinky_x > WIDTH:
-                    pinky_x -= 30
-                pinky_direction = ghost_player_direction
-            else:
+            pinky_x, pinky_y, pinky_direction = control_ghost(
+                pinky, pinky_x, pinky_y, pinky_direction, ghost_speeds[2], 2
+            )
+            if not ghost_is_player_controlled(2):
                 if not pinky_dead and not pinky.in_box:
                     pinky_x, pinky_y, pinky_direction = pinky.move_pinky()
                 else:
                     pinky_x, pinky_y, pinky_direction = pinky.move_clyde()
 
-            if ghost_is_player_controlled(3) and not clyde_dead:
-                g_center_x = clyde_x + 22
-                g_center_y = clyde_y + 22
-                g_turns = check_position(g_center_x, g_center_y, ghost_player_direction, level)
-                if ghost_player_direction_command == 0 and g_turns[0]:
-                    ghost_player_direction = 0
-                if ghost_player_direction_command == 1 and g_turns[1]:
-                    ghost_player_direction = 1
-                if ghost_player_direction_command == 2 and g_turns[2]:
-                    ghost_player_direction = 2
-                if ghost_player_direction_command == 3 and g_turns[3]:
-                    ghost_player_direction = 3
-                clyde_x, clyde_y = move_player(
-                    clyde_x,
-                    clyde_y,
-                    ghost_player_direction,
-                    g_turns,
-                    ghost_speeds[3],
-                )
-                if clyde_x < -30:
-                    clyde_x = WIDTH
-                elif clyde_x > WIDTH:
-                    clyde_x -= 30
-                clyde_direction = ghost_player_direction
-            else:
+            clyde_x, clyde_y, clyde_direction = control_ghost(
+                clyde, clyde_x, clyde_y, clyde_direction, ghost_speeds[3], 3
+            )
+            if not ghost_is_player_controlled(3):
                 clyde_x, clyde_y, clyde_direction = clyde.move_clyde()
         else:
             turns_allowed = check_position(center_x, center_y, direction, level)
@@ -708,7 +662,6 @@ def run() -> None:
             center_y,
             level,
         )
-
         if multiplayer_mode == "Co-op":
             score2, powerup, power_counter, eaten_ghost = check_collisions(
                 score2,
@@ -743,9 +696,7 @@ def run() -> None:
                     startup_counter = 0
 
         if not powerup and not (paused or remap_mode or show_help or game_over or game_won):
-
             handle_player_hit(1, player_circle)
-
             if multiplayer_mode == "Co-op":
                 handle_player_hit(2, player2_circle)
 
