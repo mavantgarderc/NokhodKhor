@@ -101,3 +101,33 @@ ACTION_ORDER = [
 
 MULTIPLAYER_MODES = ["1P", "Co-op", "Versus"]
 DEFAULT_MULTIPLAYER_MODE = "1P"
+
+THEME_MODES = ["classic", "hardcore", "relaxed", "chaos"]
+DEFAULT_THEME_MODE = "classic"
+
+THEME_RULES = {
+    "classic": {
+        "lives_multiplier": 1.0,
+        "ghost_speed_multiplier": 1.0,
+        "powerup_duration_multiplier": 1.0,
+        "record_high_scores": True,
+    },
+    "hardcore": {
+        "lives_multiplier": 0.3,
+        "ghost_speed_multiplier": 1.2,
+        "powerup_duration_multiplier": 0.7,
+        "record_high_scores": True,
+    },
+    "relaxed": {
+        "lives_multiplier": 2.0,
+        "ghost_speed_multiplier": 0.8,
+        "powerup_duration_multiplier": 1.5,
+        "record_high_scores": False,
+    },
+    "chaos": {
+        "lives_multiplier": 1.0,
+        "ghost_speed_multiplier": 1.0,
+        "powerup_duration_multiplier": 1.0,
+        "record_high_scores": True,
+    },
+}

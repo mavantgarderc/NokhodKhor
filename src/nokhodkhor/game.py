@@ -1,4 +1,5 @@
 import copy
+import random
 
 import pygame
 
@@ -13,6 +14,7 @@ from .config import (
     DEFAULT_KEY_BINDINGS,
     DEFAULT_KEY_BINDINGS_P2,
     DEFAULT_MULTIPLAYER_MODE,
+    DEFAULT_THEME_MODE,
     DIFFICULTIES,
     FONT_NAME,
     FONT_SIZE,
@@ -26,6 +28,8 @@ from .config import (
     PLAYER_START_X,
     PLAYER_START_Y,
     STARTUP_DELAY_FRAMES,
+    THEME_MODES,
+    THEME_RULES,
     WIDTH,
 )
 from .ghosts import Ghost
@@ -55,9 +59,14 @@ def run() -> None:
     difficulty_name = DEFAULT_DIFFICULTY
     difficulty = DIFFICULTIES[difficulty_name]
 
+    theme_mode = DEFAULT_THEME_MODE
+    theme_rules = THEME_RULES[theme_mode]
+
     player_speed = difficulty["player_speed"]
-    powerup_duration_frames = difficulty["powerup_duration"]
-    max_lives = difficulty["lives"]
+    powerup_duration_frames = int(
+        difficulty["powerup_duration"] * theme_rules["powerup_duration_multiplier"]
+    )
+    max_lives = max(1, int(difficulty["lives"] * theme_rules["lives_multiplier"]))
 
     key_bindings = DEFAULT_KEY_BINDINGS.copy()
     key_bindings_p2 = DEFAULT_KEY_BINDINGS_P2.copy()
@@ -70,7 +79,14 @@ def run() -> None:
     multiplayer_menu_index = MULTIPLAYER_MODES.index(multiplayer_mode)
     versus_ghost_index = 0
 
-    PAUSE_MENU_ITEMS = ["Resume", "Restart", "Change Difficulty", "Multiplayer", "Quit"]
+    PAUSE_MENU_ITEMS = [
+        "Resume",
+        "Restart",
+        "Change Difficulty",
+        "Theme Mode",
+        "Multiplayer",
+        "Quit",
+    ]
     pause_menu_index = 0
 
     remap_mode = False
@@ -132,17 +148,25 @@ def run() -> None:
     moving = False
     paused = False
 
+    chaos_timer = 0
+    CHAOS_INTERVAL_FRAMES = 5 * FPS
+
     running = True
 
     def apply_difficulty(name: str) -> None:
         nonlocal difficulty_name, difficulty
         nonlocal player_speed, powerup_duration_frames, max_lives
-        nonlocal current_high_score
+        nonlocal current_high_score, theme_rules
+
         difficulty_name = name
         difficulty = DIFFICULTIES[difficulty_name]
+
         player_speed = difficulty["player_speed"]
-        powerup_duration_frames = difficulty["powerup_duration"]
-        max_lives = difficulty["lives"]
+        powerup_duration_frames = int(
+            difficulty["powerup_duration"] * theme_rules["powerup_duration_multiplier"]
+        )
+        max_lives = max(1, int(difficulty["lives"] * theme_rules["lives_multiplier"]))
+
         current_high_score = get_high_score(high_scores, difficulty_name)
 
     def soft_reset() -> None:
@@ -244,11 +268,12 @@ def run() -> None:
             remap_prompt = ACTION_LABELS[remap_order[remap_index]]
 
     def finalize_run_if_needed() -> None:
-        nonlocal run_recorded, current_high_score
+        nonlocal run_recorded, current_high_score, theme_rules
         if (game_over or game_won) and not run_recorded:
-            if maybe_update_high_score(high_scores, difficulty_name, score):
-                save_high_scores(high_scores)
-            current_high_score = get_high_score(high_scores, difficulty_name)
+            if theme_rules.get("record_high_scores", True):
+                if maybe_update_high_score(high_scores, difficulty_name, score):
+                    save_high_scores(high_scores)
+                current_high_score = get_high_score(high_scores, difficulty_name)
             run_recorded = True
 
     def build_bindings_display() -> list[tuple[str, str]]:
@@ -278,6 +303,23 @@ def run() -> None:
             ghost_player_direction = 0
             ghost_player_direction_command = 0
 
+    def cycle_theme_mode() -> None:
+        nonlocal theme_mode, theme_rules
+        nonlocal player_speed, powerup_duration_frames, max_lives
+        nonlocal difficulty, chaos_timer
+
+        idx = THEME_MODES.index(theme_mode)
+        theme_mode = THEME_MODES[(idx + 1) % len(THEME_MODES)]
+        theme_rules = THEME_RULES[theme_mode]
+
+        chaos_timer = 0
+
+        player_speed = difficulty["player_speed"]
+        powerup_duration_frames = int(
+            difficulty["powerup_duration"] * theme_rules["powerup_duration_multiplier"]
+        )
+        max_lives = max(1, int(difficulty["lives"] * theme_rules["lives_multiplier"]))
+
     def ghost_is_player_controlled(ghost_id: int) -> bool:
         return multiplayer_mode == "Versus" and ghost_id == versus_ghost_index
 
@@ -306,6 +348,24 @@ def run() -> None:
             else:
                 moving = True
 
+        if (
+            theme_mode == "chaos"
+            and not paused
+            and not remap_mode
+            and not show_help
+            and not game_over
+            and not game_won
+        ):
+            chaos_timer += 1
+            if chaos_timer >= CHAOS_INTERVAL_FRAMES:
+                chaos_timer = 0
+
+                random_mult = random.uniform(0.8, 1.3)
+                theme_rules = {
+                    **theme_rules,
+                    "ghost_speed_multiplier": random_mult,
+                }
+
         screen.fill(COLOR_BG)
         draw_board(screen, level, flicker)
 
@@ -315,22 +375,25 @@ def run() -> None:
         center2_y = player2_y + 24
 
         if powerup:
-            ghost_speeds = [difficulty["frightened_speed"]] * 4
+            base_speed = difficulty["frightened_speed"]
         else:
-            ghost_speeds = [difficulty["ghost_speed"]] * 4
+            base_speed = difficulty["ghost_speed"]
+
+        base_speed *= theme_rules["ghost_speed_multiplier"]
+        ghost_speeds = [base_speed] * 4
 
         for idx in range(4):
             if eaten_ghost[idx]:
-                ghost_speeds[idx] = difficulty["ghost_speed"]
+                ghost_speeds[idx] = difficulty["ghost_speed"] * theme_rules["ghost_speed_multiplier"]
 
         if blinky_dead:
-            ghost_speeds[0] = difficulty["eaten_speed"]
+            ghost_speeds[0] = difficulty["eaten_speed"] * theme_rules["ghost_speed_multiplier"]
         if inky_dead:
-            ghost_speeds[1] = difficulty["eaten_speed"]
+            ghost_speeds[1] = difficulty["eaten_speed"] * theme_rules["ghost_speed_multiplier"]
         if pinky_dead:
-            ghost_speeds[2] = difficulty["eaten_speed"]
+            ghost_speeds[2] = difficulty["eaten_speed"] * theme_rules["ghost_speed_multiplier"]
         if clyde_dead:
-            ghost_speeds[3] = difficulty["eaten_speed"]
+            ghost_speeds[3] = difficulty["eaten_speed"] * theme_rules["ghost_speed_multiplier"]
 
         level_cleared = True
         for row in level:
@@ -420,6 +483,7 @@ def run() -> None:
             paused,
             pause_menu_index,
             difficulty_name,
+            theme_mode,
             current_level_index,
             total_levels,
             show_help,
@@ -505,8 +569,7 @@ def run() -> None:
             pink_px, pink_py, pink_dir = nearest_player(pink_x, pink_y)
             pinky_target_px, pinky_target_py = ahead_pixel(pink_px, pink_py, pink_dir, 4)
 
-            clyd_px, clyd_py, clyd_dir = nearest_player(clyd_x, clyd_y)
-
+            clyd_px, clyd_py, _ = nearest_player(clyd_x, clyd_y)
             clyde_offset_px = clyd_px + 0.5 * num2
             clyde_offset_py = clyd_py + 0.5 * num1
 
@@ -516,7 +579,6 @@ def run() -> None:
             clyd_runx, clyd_runy = runaway_for(clyd_px, clyd_py)
 
             if powerup:
-
                 if not blinky.dead and not eaten_ghost[0]:
                     blink_target = (blink_runx, blink_runy)
                 elif not blinky.dead and eaten_ghost[0]:
@@ -557,7 +619,6 @@ def run() -> None:
                 else:
                     clyd_target = return_target
             else:
-
                 if not blinky.dead:
                     if 340 < blink_x < 560 and 340 < blink_y < 500:
                         blink_target = (400, 100)
@@ -871,6 +932,8 @@ def run() -> None:
                             idx = names.index(difficulty_name)
                             new_name = names[(idx + 1) % len(names)]
                             apply_difficulty(new_name)
+                        elif selected == "Theme Mode":
+                            cycle_theme_mode()
                         elif selected == "Multiplayer":
                             cycle_multiplayer_mode()
                         elif selected == "Quit":
