@@ -13,7 +13,8 @@ FONT_SIZE = 20
 
 PLAYER_START_X = 450
 PLAYER_START_Y = 663
-
+PLAYER2_START_X = 430
+PLAYER2_START_Y = 663
 
 BLINKY_START = (56, 58, 0)
 INKY_START = (440, 388, 2)
@@ -71,6 +72,13 @@ DEFAULT_KEY_BINDINGS = {
     "restart": pygame.K_SPACE,
 }
 
+DEFAULT_KEY_BINDINGS_P2 = {
+    "move_right": pygame.K_d,
+    "move_left": pygame.K_a,
+    "move_up": pygame.K_w,
+    "move_down": pygame.K_s,
+}
+
 
 ACTION_LABELS = {
     "move_right": "Move Right",
@@ -90,3 +98,6 @@ ACTION_ORDER = [
     "pause",
     "restart",
 ]
+
+MULTIPLAYER_MODES = ["1P", "Co-op", "Versus"]
+DEFAULT_MULTIPLAYER_MODE = "1P"
