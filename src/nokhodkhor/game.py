@@ -439,223 +439,122 @@ def run() -> None:
             clyd_x,
             clyd_y,
         ):
-            nonlocal level
-            nonlocal current_level_index
+            nonlocal powerup, eaten_ghost, player_x, player_y, player2_x, player2_y
             nonlocal multiplayer_mode
-            nonlocal player_x, player_y, player2_x, player2_y
-            nonlocal direction, direction2
-            nonlocal powerup, eaten_ghost
-            nonlocal game_over, game_won, paused, remap_mode, show_help
 
-            if (
-                not hasattr(get_targets, "_initialized")
-                or get_targets._last_level_index != current_level_index
-            ):
-                get_targets._schedule = [
-                    ("scatter", 7 * FPS),
-                    ("chase", 20 * FPS),
-                    ("scatter", 7 * FPS),
-                    ("chase", 20 * FPS),
-                    ("scatter", 5 * FPS),
-                    ("chase", 20 * FPS),
-                    ("scatter", 5 * FPS),
-                ]
-                get_targets._mode_index = 0
-                get_targets._mode, get_targets._timer = get_targets._schedule[0]
-                get_targets._initialized = True
-                get_targets._last_level_index = current_level_index
+            def nearest_player(gx: float, gy: float) -> tuple[float, float]:
+                gx_c = gx + 22
+                gy_c = gy + 22
+                p1_cx = player_x + 23
+                p1_cy = player_y + 24
+                best_x, best_y = player_x, player_y
+                best_d = (gx_c - p1_cx) ** 2 + (gy_c - p1_cy) ** 2
 
-            if (
-                not powerup
-                and not game_over
-                and not game_won
-                and not paused
-                and not remap_mode
-                and not show_help
-            ):
-                if get_targets._mode_index < len(get_targets._schedule):
-                    get_targets._timer -= 1
-                    if get_targets._timer <= 0:
-                        get_targets._mode_index += 1
-                        if get_targets._mode_index < len(get_targets._schedule):
-                            (
-                                get_targets._mode,
-                                get_targets._timer,
-                            ) = get_targets._schedule[get_targets._mode_index]
-                        else:
-                            get_targets._mode = "chase"
-
-            ghost_mode = get_targets._mode
-
-            num1 = (HEIGHT - 50) // 32
-            num2 = WIDTH // 30
-
-            def to_tile(px: float, py: float) -> tuple[int, int]:
-                tx = int((px + 22) // num2)
-                ty = int((py + 22) // num1)
-                return tx, ty
-
-            def tile_to_pixel(tx: int, ty: int) -> tuple[float, float]:
-                return (
-                    tx * num2 + 0.5 * num2,
-                    ty * num1 + 0.5 * num1,
-                )
-
-            rows = len(level)
-            cols = len(level[0])
-
-            def clamp_tile(tx: int, ty: int) -> tuple[int, int]:
-                return max(0, min(cols - 1, tx)), max(0, min(rows - 1, ty))
-
-            def dir_vector(dir_code: int) -> tuple[int, int]:
-                dx, dy = 0, 0
-                if dir_code == 0:
-                    dx = 1
-                elif dir_code == 1:
-                    dx = -1
-                elif dir_code == 2:
-                    dy = -1
-                elif dir_code == 3:
-                    dy = 1
-                return dx, dy
-
-            p1_cx = player_x + 23
-            p1_cy = player_y + 24
-            p1_tx = int(p1_cx // num2)
-            p1_ty = int(p1_cy // num1)
-
-            if multiplayer_mode == "Co-op":
-                p2_cx = player2_x + 23
-                p2_cy = player2_y + 24
-                p2_tx = int(p2_cx // num2)
-                p2_ty = int(p2_cy // num1)
-            else:
-                p2_tx = p2_ty = 0
-
-            blinky_tx, blinky_ty = to_tile(blink_x, blink_y)
-            inky_tx, inky_ty = to_tile(ink_x, ink_y)
-            pinky_tx, pinky_ty = to_tile(pink_x, pink_y)
-            clyde_tx, clyde_ty = to_tile(clyd_x, clyd_y)
-
-            blinky_scatter = (cols - 3, 1)
-            pinky_scatter = (2, 1)
-            inky_scatter = (cols - 3, rows - 3)
-            clyde_scatter = (2, rows - 3)
-
-            def choose_player_for_ghost(ghost_tx: int, ghost_ty: int) -> tuple[int, int, int]:
-                best_tx, best_ty, best_dir = p1_tx, p1_ty, direction
                 if multiplayer_mode == "Co-op":
-                    d1 = (ghost_tx - p1_tx) ** 2 + (ghost_ty - p1_ty) ** 2
-                    d2 = (ghost_tx - p2_tx) ** 2 + (ghost_ty - p2_ty) ** 2
-                    if d2 < d1:
-                        best_tx, best_ty, best_dir = p2_tx, p2_ty, direction2
-                return best_tx, best_ty, best_dir
+                    p2_cx = player2_x + 23
+                    p2_cy = player2_y + 24
+                    d2 = (gx_c - p2_cx) ** 2 + (gy_c - p2_cy) ** 2
+                    if d2 < best_d:
+                        best_d = d2
+                        best_x, best_y = player2_x, player2_y
 
-            blinky_p_tx, blinky_p_ty, _ = choose_player_for_ghost(blinky_tx, blinky_ty)
-            blinky_chase = (blinky_p_tx, blinky_p_ty)
+                return best_x, best_y
 
-            pinky_p_tx, pinky_p_ty, pinky_p_dir = choose_player_for_ghost(pinky_tx, pinky_ty)
-            pink_dx, pink_dy = dir_vector(pinky_p_dir)
-            pinky_target_tx = pinky_p_tx + 4 * pink_dx
-            pinky_target_ty = pinky_p_ty + 4 * pink_dy
-            pinky_chase = clamp_tile(pinky_target_tx, pinky_target_ty)
-
-            inky_p_tx, inky_p_ty, inky_p_dir = choose_player_for_ghost(inky_tx, inky_ty)
-            inky_dx, inky_dy = dir_vector(inky_p_dir)
-            ahead_tx = inky_p_tx + 2 * inky_dx
-            ahead_ty = inky_p_ty + 2 * inky_dy
-            ahead_tx, ahead_ty = clamp_tile(ahead_tx, ahead_ty)
-            vx = ahead_tx - blinky_tx
-            vy = ahead_ty - blinky_ty
-            inky_target_tx = ahead_tx + vx
-            inky_target_ty = ahead_ty + vy
-            inky_chase = clamp_tile(inky_target_tx, inky_target_ty)
-
-            clyde_p_tx, clyde_p_ty, _ = choose_player_for_ghost(clyde_tx, clyde_ty)
-            dist_sq_clyde = (clyde_tx - clyde_p_tx) ** 2 + (clyde_ty - clyde_p_ty) ** 2
-            if dist_sq_clyde >= 8**2:
-                clyde_chase = (clyde_p_tx, clyde_p_ty)
-            else:
-                clyde_chase = clyde_scatter
-
-            def runaway_for(player_tx: int, player_ty: int) -> tuple[float, float]:
-                runaway_tx = 0 if player_tx >= cols // 2 else cols - 1
-                runaway_ty = 0 if player_ty >= rows // 2 else rows - 1
-                return tile_to_pixel(runaway_tx, runaway_ty)
-
-            blinky_run_px, blinky_run_py = runaway_for(blinky_p_tx, blinky_p_ty)
-            inky_run_px, inky_run_py = runaway_for(inky_p_tx, inky_p_ty)
-            pinky_run_px, pinky_run_py = runaway_for(pinky_p_tx, pinky_p_ty)
-            clyde_run_px, clyde_run_py = runaway_for(clyde_p_tx, clyde_p_ty)
-
-            blinky_scatter_px = tile_to_pixel(*blinky_scatter)
-            pinky_scatter_px = tile_to_pixel(*pinky_scatter)
-            inky_scatter_px = tile_to_pixel(*inky_scatter)
-            clyde_scatter_px = tile_to_pixel(*clyde_scatter)
-
-            blinky_chase_px = tile_to_pixel(*blinky_chase)
-            pinky_chase_px = tile_to_pixel(*pinky_chase)
-            inky_chase_px = tile_to_pixel(*inky_chase)
-            clyde_chase_px = tile_to_pixel(*clyde_chase)
+            def runaway_for(px: float, py: float) -> tuple[int, int]:
+                if px < 450:
+                    rx = 900
+                else:
+                    rx = 0
+                if py < 450:
+                    ry = 900
+                else:
+                    ry = 0
+                return rx, ry
 
             return_target = (380, 400)
-            cage_exit_target = (400, 300)
 
-            def choose_target(
-                ghost_obj,
-                idx: int,
-                scatter_px: tuple[float, float],
-                chase_px: tuple[float, float],
-                runaway_px: float,
-                runaway_py: float,
-            ) -> tuple[float, float]:
+            blink_px, blink_py = nearest_player(blink_x, blink_y)
+            ink_px, ink_py = nearest_player(ink_x, ink_y)
+            pink_px, pink_py = nearest_player(pink_x, pink_y)
+            clyd_px, clyd_py = nearest_player(clyd_x, clyd_y)
 
-                if ghost_obj.in_box and not ghost_obj.dead:
-                    return cage_exit_target
+            blink_runx, blink_runy = runaway_for(blink_px, blink_py)
+            ink_runx, ink_runy = runaway_for(ink_px, ink_py)
+            pink_runx, pink_runy = runaway_for(pink_px, pink_py)
+            clyd_runx, clyd_runy = runaway_for(clyd_px, clyd_py)
 
-                if ghost_obj.dead:
-                    return return_target
-
-                if powerup and not eaten_ghost[idx]:
-                    return runaway_px, runaway_py
-
-                if ghost_mode == "scatter":
-                    return scatter_px
+            if powerup:
+                if not blinky.dead and not eaten_ghost[0]:
+                    blink_target = (blink_runx, blink_runy)
+                elif not blinky.dead and eaten_ghost[0]:
+                    if 340 < blink_x < 560 and 340 < blink_y < 500:
+                        blink_target = (400, 100)
+                    else:
+                        blink_target = (blink_px, blink_py)
                 else:
-                    return chase_px
+                    blink_target = return_target
 
-            blink_target = choose_target(
-                blinky,
-                0,
-                blinky_scatter_px,
-                blinky_chase_px,
-                blinky_run_px,
-                blinky_run_py,
-            )
-            ink_target = choose_target(
-                inky,
-                1,
-                inky_scatter_px,
-                inky_chase_px,
-                inky_run_px,
-                inky_run_py,
-            )
-            pink_target = choose_target(
-                pinky,
-                2,
-                pinky_scatter_px,
-                pinky_chase_px,
-                pinky_run_px,
-                pinky_run_py,
-            )
-            clyd_target = choose_target(
-                clyde,
-                3,
-                clyde_scatter_px,
-                clyde_chase_px,
-                clyde_run_px,
-                clyde_run_py,
-            )
+                if not inky.dead and not eaten_ghost[1]:
+                    ink_target = (ink_runx, ink_py)
+                elif not inky.dead and eaten_ghost[1]:
+                    if 340 < ink_x < 560 and 340 < ink_y < 500:
+                        ink_target = (400, 100)
+                    else:
+                        ink_target = (ink_px, ink_py)
+                else:
+                    ink_target = return_target
+
+                if not pinky.dead and not eaten_ghost[2]:
+                    pink_target = (pink_px, pink_runy)
+                elif not pinky.dead and eaten_ghost[2]:
+                    if 340 < pink_x < 560 and 340 < pink_y < 500:
+                        pink_target = (400, 100)
+                    else:
+                        pink_target = (pink_px, pink_py)
+                else:
+                    pink_target = return_target
+
+                if not clyde.dead and not eaten_ghost[3]:
+                    clyd_target = (clyd_runx, clyd_runy)
+                elif not clyde.dead and eaten_ghost[3]:
+                    if 340 < clyd_x < 560 and 340 < clyd_y < 500:
+                        clyd_target = (400, 100)
+                    else:
+                        clyd_target = (clyd_px, clyd_py)
+                else:
+                    clyd_target = return_target
+            else:
+                if not blinky.dead:
+                    if 340 < blink_x < 560 and 340 < blink_y < 500:
+                        blink_target = (400, 100)
+                    else:
+                        blink_target = (blink_px, blink_py)
+                else:
+                    blink_target = return_target
+
+                if not inky.dead:
+                    if 340 < ink_x < 560 and 340 < ink_y < 500:
+                        ink_target = (400, 100)
+                    else:
+                        ink_target = (ink_px, ink_py)
+                else:
+                    ink_target = return_target
+
+                if not pinky.dead:
+                    if 340 < pink_x < 560 and 340 < pink_y < 500:
+                        pink_target = (400, 100)
+                    else:
+                        pink_target = (pink_px, pink_py)
+                else:
+                    pink_target = return_target
+
+                if not clyde.dead:
+                    if 340 < clyd_x < 560 and 340 < clyd_y < 500:
+                        clyd_target = (400, 100)
+                    else:
+                        clyd_target = (clyd_px, clyd_py)
+                else:
+                    clyd_target = return_target
 
             return [blink_target, ink_target, pink_target, clyd_target]
 
