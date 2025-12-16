@@ -141,6 +141,8 @@ def run() -> None:
     ]
 
     ghost_speeds = [2, 2, 2, 2]
+    ghost_modes = ["CHASE"] * 4
+
     startup_counter = 0
     lives = max_lives
     game_over = False
@@ -150,6 +152,8 @@ def run() -> None:
 
     chaos_timer = 0
     CHAOS_INTERVAL_FRAMES = 5 * FPS
+
+    debug_overlay = False
 
     running = True
 
@@ -322,6 +326,34 @@ def run() -> None:
 
     def ghost_is_player_controlled(ghost_id: int) -> bool:
         return multiplayer_mode == "Versus" and ghost_id == versus_ghost_index
+
+    def draw_ai_debug_overlay() -> None:
+        """Draw ghost targets and modes when debug_overlay is True."""
+        if not debug_overlay:
+            return
+
+        ghost_colors = [
+            (255, 0, 0),
+            (0, 255, 255),
+            (255, 105, 180),
+            (255, 165, 0),
+        ]
+        ghost_list = (blinky, inky, pinky, clyde)
+
+        for idx, ghost in enumerate(ghost_list):
+            color = ghost_colors[idx]
+            tx, ty = targets[idx]
+            x = int(tx)
+            y = int(ty)
+            size = 6
+
+            pygame.draw.line(screen, color, (x - size, y), (x + size, y), 2)
+            pygame.draw.line(screen, color, (x, y - size), (x, y + size), 2)
+
+            mode = ghost_modes[idx]
+            label = font.render(mode, True, color)
+            gx, gy = ghost.rect.center
+            screen.blit(label, (gx - label.get_width() // 2, gy - 30))
 
     while running:
         timer.tick(FPS)
@@ -655,6 +687,15 @@ def run() -> None:
 
         targets = get_targets(blinky_x, blinky_y, inky_x, inky_y, pinky_x, pinky_y, clyde_x, clyde_y)
 
+        ghost_list_for_modes = (blinky, inky, pinky, clyde)
+        for idx, ghost in enumerate(ghost_list_for_modes):
+            if ghost.dead:
+                ghost_modes[idx] = "RETURN"
+            elif powerup and not eaten_ghost[idx]:
+                ghost_modes[idx] = "FLEE"
+            else:
+                ghost_modes[idx] = "CHASE"
+
         can_update_positions = (
             moving and not paused and not remap_mode and not show_help and not game_over and not game_won
         )
@@ -885,6 +926,10 @@ def run() -> None:
                     start_remap_mode()
                     continue
 
+                if event.key == pygame.K_F9:
+                    debug_overlay = not debug_overlay
+                    continue
+
                 if event.key == pygame.K_h and not (game_over or game_won):
                     show_help = not show_help
                     continue
@@ -1021,6 +1066,8 @@ def run() -> None:
             pinky_dead = False
         if clyde.in_box and clyde_dead:
             clyde_dead = False
+
+        draw_ai_debug_overlay()
 
         pygame.display.flip()
 

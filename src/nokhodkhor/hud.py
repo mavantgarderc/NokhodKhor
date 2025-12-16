@@ -59,7 +59,10 @@ def draw_misc(
     status_surf = font.render(status_text, True, "white")
     screen.blit(status_surf, (10, 890))
 
-    hints_text = "H: Help | F5: Remap | 1/2/3: Difficulty | M: Cycle mode | G: Change P2 ghost"
+    hints_text = (
+        "H: Help | F5: Remap | F9: AI Debug | "
+        "1/2/3: Difficulty | M: Cycle mode | G: Change P2 ghost"
+    )
     hints_surf = font.render(hints_text, True, "gray")
     screen.blit(hints_surf, (10, 870))
 
